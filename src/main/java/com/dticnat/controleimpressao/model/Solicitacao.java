@@ -29,7 +29,7 @@ public class Solicitacao {
     @Max(value = 172800, message = "O prazo deve ser no máximo 48 horas (172800 segundos).")
     private int prazoSolicitacao;
 
-    // Status da solicitação (0 = em aberto, 1 = concluída)
+    // Status da solicitação (0 = em aberto, 1 = fechada)
     private int statusSolicitacao = 0;
 
     // Data de solicitação em Unix time
@@ -50,8 +50,8 @@ public class Solicitacao {
     @NotNull(message = "O matrícula associada não pode ser nula.")
     private long matriculaUsuario;
 
-//    @NotEmpty(message = "Deve haver pelo menos uma cópia na solicitação.")
     @OneToMany
     @JoinColumn(name="solicitacao_id", referencedColumnName="id")
+    @NotEmpty(message = "Deve haver pelo menos uma cópia na solicitação.")
     private List<Copia> copias;
 }

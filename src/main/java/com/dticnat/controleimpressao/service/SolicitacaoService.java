@@ -36,12 +36,13 @@ public class SolicitacaoService {
     }
 
     // Atualiza o status da solicitação para '1' (concluída)
-    public boolean updateStatusbyId(Long id) {
+    public boolean concludeStatusbyId(Long id) {
         Optional<Solicitacao> solicitacao = findById(id);
 
         if (solicitacao.isPresent()) {
             Solicitacao tmp = solicitacao.get();
             tmp.setStatusSolicitacao(1);
+            tmp.setDataConclusao(System.currentTimeMillis());
             solicitacaoRepository.save(tmp);
 
             return true;

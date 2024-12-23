@@ -75,9 +75,9 @@ public class SolicitacaoController {
 
     // 4. Atualizar o status da solicitação para 1 (concluída)
     @PatchMapping("/{id}/status")
-    public ResponseEntity<?> updateStatusSolicitacao(@PathVariable Long id) {
-        return (solicitacaoService.updateStatusbyId(id)) ?
-                ResponseEntity.ok("Status da solicitação com ID " + id + " atualizado para concluído.") :
+    public ResponseEntity<?> concludeStatusSolicitacao(@PathVariable Long id) {
+        return (solicitacaoService.concludeStatusbyId(id)) ?
+                ResponseEntity.ok("Status da solicitação com ID " + id + " atualizado para fechada.") :
                 ResponseEntity.status(HttpStatus.NOT_FOUND).body("Solicitação com ID " + id + " não encontrada.");
     }
 }
