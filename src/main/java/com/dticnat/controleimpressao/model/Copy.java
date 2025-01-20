@@ -1,6 +1,5 @@
 package com.dticnat.controleimpressao.model;
 
-
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -14,7 +13,7 @@ import jakarta.persistence.*;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class Copia {
+public class Copy {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -22,20 +21,20 @@ public class Copia {
 
     @NotNull(message = "O nome do arquivo não pode ser nulo.")
     @NotEmpty(message = "O nome do arquivo não pode ser vazio.")
-    private String nomeArquivo;
+    private String fileName;
 
     @NotNull(message = "A extensão do arquivo (pdf, docx) não pode ser nulo.")
     @NotEmpty(message = "A extensão do arquivo (pdf, docx) não pode ser vazia.")
-    private String extensaoArquivo;
+    private String fileType;
 
     @NotNull(message = "O número de cópias não pode ser nulo.")
     @Positive(message = "O número de cópias deve ser positivo.")
-    private int numeroCopiasRequisitadas;
+    private int copyCount;
 
-    private int numeroPaginas;
+    private int pageCount;
 
-    private Boolean possuiArquivoSalvo;
+    private Boolean fileInDisk;
 
-    @Column(name="solicitacao_id")
-    private Long solicitacaoId;
+    @Column(name="request_id")
+    private Long requestId;
 }

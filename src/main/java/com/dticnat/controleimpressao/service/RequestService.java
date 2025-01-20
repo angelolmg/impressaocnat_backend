@@ -1,9 +1,9 @@
 package com.dticnat.controleimpressao.service;
 
 
-import com.dticnat.controleimpressao.model.Copia;
-import com.dticnat.controleimpressao.model.Solicitacao;
-import com.dticnat.controleimpressao.repository.SolicitacaoRepository;
+import com.dticnat.controleimpressao.model.Copy;
+import com.dticnat.controleimpressao.model.Request;
+import com.dticnat.controleimpressao.repository.RequestRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -16,34 +16,34 @@ import java.util.Optional;
 
 
 @Service
-public class SolicitacaoService {
+public class RequestService {
 
     @Autowired
-    private SolicitacaoRepository solicitacaoRepository;
+    private RequestRepository requestRepository;
 
     @Autowired
-    private CopiaService copiaService;
+    private CopyService copyService;
 
     @Value("${arquivos.base-dir}")
     private String baseDir;
 
-    public List<Solicitacao> findAll() {
-        return solicitacaoRepository.findAll();
+    public List<Request> findAll() {
+        return requestRepository.findAll();
     }
 
-    public Optional<Solicitacao> findById(Long id) {
-        return solicitacaoRepository.findById(id);
+    public Optional<Request> findById(Long id) {
+        return requestRepository.findById(id);
     }
 
     // Atualiza o status da solicitação para '1' (concluída)
     public boolean concludeStatusbyId(Long id) {
-        Optional<Solicitacao> solicitacao = findById(id);
+        Optional<Request> solicitacao = findById(id);
 
         if (solicitacao.isPresent()) {
-            Solicitacao tmp = solicitacao.get();
-            tmp.setStatusSolicitacao(1);
-            tmp.setDataConclusao(System.currentTimeMillis());
-            solicitacaoRepository.save(tmp);
+            Request tmp = solicitacao.get();
+//            tmp.setStatusSolicitacao(1);
+            tmp.setConclusionDate(System.currentTimeMillis());
+            requestRepository.save(tmp);
 
             return true;
         }
@@ -52,53 +52,53 @@ public class SolicitacaoService {
 
 
     // Cria nova solicitação no banco de dados
-    public Solicitacao create(Solicitacao solicitacao) {
+    public Request create(Request request) {
 
-        // 1. Gerar número da solicitação
-        solicitacao.setNumeroSolicitacao(findAll().size());
+//        // 1. Gerar número da solicitação
+//        solicitacao.setNumeroSolicitacao(findAll().size());
 
         // 2. Garantir que o status seja sempre 0 (em aberto) quando a solicitação for criada
-        solicitacao.setStatusSolicitacao(0);
+//        solicitacao.setStatusSolicitacao(0);
 
         // 3. Configurar data de criação da solicitação em unix time
-        solicitacao.setDataSolicitacao(System.currentTimeMillis());
+        request.setCreationDate(System.currentTimeMillis());
 
         // 4. Data de conclusão na criação é 0
-        solicitacao.setDataConclusao(0);
+        request.setConclusionDate(0);
 
         // 6. Verificar número de páginas total para cópias
         // ...
 
         // 7. Persistir a solicitação no banco de dados
-        return solicitacaoRepository.save(solicitacao);
+        return requestRepository.save(request);
     }
 
     public boolean existsById(Long id) {
-        return solicitacaoRepository.existsById(id);
+        return requestRepository.existsById(id);
     }
 
-    public String salvarArquivos(Solicitacao solicitacao, List<MultipartFile> arquivos) {
+    public String saveFiles(Request request, List<MultipartFile> arquivos) {
         // Valida se o número de arquivos corresponde às cópias
-        if (arquivos.size() != solicitacao.getCopias().size()) {
+        if (arquivos.size() != request.getCopies().size()) {
             return "O número de arquivos enviados não corresponde ao número de cópias.";
         }
 
-        String diretorioUsuario = baseDir + solicitacao.getMatriculaUsuario();
+        String userPath = baseDir + request.getRegistration();
 
         try {
             // Cria o diretório do usuário, se necessário
-            java.nio.file.Files.createDirectories(java.nio.file.Paths.get(diretorioUsuario));
+            java.nio.file.Files.createDirectories(java.nio.file.Paths.get(userPath));
 
             // Itera sobre os arquivos e salva
             for (int i = 0; i < arquivos.size(); i++) {
-                MultipartFile arquivo = arquivos.get(i);
-                Copia copia = solicitacao.getCopias().get(i);
+                MultipartFile file = arquivos.get(i);
+                Copy copy = request.getCopies().get(i);
 
                 // Define o caminho do arquivo
-                String caminhoArquivo = diretorioUsuario + "/" + copia.getNomeArquivo() + "." + copia.getExtensaoArquivo();
+                String filePath = userPath + "/" + copy.getFileName() + "." + copy.getFileType();
 
                 // Salva o arquivo no disco
-                arquivo.transferTo(new File(caminhoArquivo));
+                file.transferTo(new File(filePath));
             }
 
         } catch (IOException e) {

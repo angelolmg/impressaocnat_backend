@@ -15,43 +15,41 @@ import java.util.List;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class Solicitacao {
+public class Request {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private int numeroSolicitacao;
-
     // Prazo em segundos (default de 1 hora)
     @NotNull(message = "O prazo da solicitação não pode ser nulo.")
     @Min(value = 3600, message = "O prazo deve ser no mínimo 1 hora (3600 segundos).")
     @Max(value = 172800, message = "O prazo deve ser no máximo 48 horas (172800 segundos).")
-    private int prazoSolicitacao;
+    private int term;
 
-    // Status da solicitação (0 = em aberto, 1 = fechada)
-    private int statusSolicitacao = 0;
+//    // Status da solicitação (0 = em aberto, 1 = fechada)
+//    private int statusSolicitacao = 0;
 
     // Data de solicitação em Unix time
-    private long dataSolicitacao;
+    private long creationDate;
 
     // Data de conclusão em Unix time
-    private long dataConclusao = 0;
+    private long conclusionDate = 0;
 
     // Número de páginas total
-    private int numeroPaginasTotal;
+    private int totalPageCount;
 
     // Usuário associado à solicitação
     @NotNull(message = "O usuário associado não pode ser nulo.")
     @NotEmpty(message = "O usuário associado não pode ser vazio.")
-    private String usuarioAssociado;
+    private String username;
 
     // A matrícula do usuário solicitante
     @NotNull(message = "O matrícula associada não pode ser nula.")
-    private long matriculaUsuario;
+    private long registration;
 
     @OneToMany
-    @JoinColumn(name="solicitacao_id", referencedColumnName="id")
+    @JoinColumn(name="request_id", referencedColumnName="id")
     @NotEmpty(message = "Deve haver pelo menos uma cópia na solicitação.")
-    private List<Copia> copias;
+    private List<Copy> copies;
 }

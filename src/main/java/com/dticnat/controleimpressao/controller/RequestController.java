@@ -2,10 +2,10 @@ package com.dticnat.controleimpressao.controller;
 
 
 
-import com.dticnat.controleimpressao.model.Copia;
-import com.dticnat.controleimpressao.model.Solicitacao;
-import com.dticnat.controleimpressao.service.CopiaService;
-import com.dticnat.controleimpressao.service.SolicitacaoService;
+import com.dticnat.controleimpressao.model.Copy;
+import com.dticnat.controleimpressao.model.Request;
+import com.dticnat.controleimpressao.service.CopyService;
+import com.dticnat.controleimpressao.service.RequestService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -18,25 +18,25 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/solicitacoes")
-public class SolicitacaoController {
+public class RequestController {
 
     @Autowired
-    private SolicitacaoService solicitacaoService;
+    private RequestService requestService;
 
     @Autowired
-    private CopiaService copiaService;
+    private CopyService copyService;
 
     // 1. Listar todas as solicitações
     @GetMapping
-    public ResponseEntity<List<Solicitacao>> getAllSolicitacoes() {
-        List<Solicitacao> solicitacoes = solicitacaoService.findAll();
+    public ResponseEntity<List<Request>> getAllSolicitacoes() {
+        List<Request> solicitacoes = requestService.findAll();
         return ResponseEntity.ok(solicitacoes);
     }
 
     // 2. Buscar uma solicitação pelo ID
     @GetMapping("/{id}")
     public ResponseEntity<?> getSolicitacaoById(@PathVariable Long id) {
-        Optional<Solicitacao> solicitacao = solicitacaoService.findById(id);
+        Optional<Request> solicitacao = requestService.findById(id);
 
         return solicitacao.<ResponseEntity<?>>map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -46,11 +46,11 @@ public class SolicitacaoController {
     // 3. Criar uma nova solicitação
     @PostMapping(consumes = {"multipart/form-data"})
     public ResponseEntity<?> criarSolicitacao(
-            @RequestPart("solicitacao") @Valid Solicitacao solicitacao,
+            @RequestPart("solicitacao") @Valid Request request,
             @RequestPart("arquivos") List<MultipartFile> arquivos) {
 
         // 3.2 Salvar os arquivos em disco
-        String mensagemErro = solicitacaoService.salvarArquivos(solicitacao, arquivos);
+        String mensagemErro = requestService.saveFiles(request, arquivos);
 
         // 3.3 Lógica para quando há erro de salvamento IO
         // Se um arquivo da solicitação dá erro, os demais salvos anteriormente devem ser excluídos
@@ -60,24 +60,26 @@ public class SolicitacaoController {
                     .body(mensagemErro);
         }
 
+
+
         // 3.4 Associar cópias à solicitação
-        List<Copia> copias = solicitacao.getCopias();
-        copias.forEach((copia)-> {
-            copia.setSolicitacaoId(solicitacao.getId());
-            copia.setPossuiArquivoSalvo(true);
-            copiaService.create(copia);
+        List<Copy> copies = request.getCopies();
+        copies.forEach((copy)-> {
+            copy.setRequestId(request.getId());
+            copy.setFileInDisk(true);
+            copyService.create(copy);
         });
 
         // 3.5 Criar nova a solicitação no banco de dados
-        Solicitacao novaSolicitacao = solicitacaoService.create(solicitacao);
-        return ResponseEntity.status(HttpStatus.CREATED).body(novaSolicitacao);
+        Request newRequest = requestService.create(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(newRequest);
     }
 
-    // 4. Atualizar o status da solicitação para 1 (concluída)
-    @PatchMapping("/{id}/status")
-    public ResponseEntity<?> concludeStatusSolicitacao(@PathVariable Long id) {
-        return (solicitacaoService.concludeStatusbyId(id)) ?
-                ResponseEntity.ok("Status da solicitação com ID " + id + " atualizado para fechada.") :
-                ResponseEntity.status(HttpStatus.NOT_FOUND).body("Solicitação com ID " + id + " não encontrada.");
-    }
+//    // 4. Atualizar o status da solicitação para 1 (concluída)
+//    @PatchMapping("/{id}/status")
+//    public ResponseEntity<?> concludeStatusSolicitacao(@PathVariable Long id) {
+//        return (solicitacaoService.concludeStatusbyId(id)) ?
+//                ResponseEntity.ok("Status da solicitação com ID " + id + " atualizado para fechada.") :
+//                ResponseEntity.status(HttpStatus.NOT_FOUND).body("Solicitação com ID " + id + " não encontrada.");
+//    }
 }

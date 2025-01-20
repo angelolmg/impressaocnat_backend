@@ -13,12 +13,12 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
-        String loginUrl = "https://suap.ifrn.edu.br/o/authorize/" +
-                "?response_type=" + "token" +
-                "&grant_type="    + "implicit" +
-                "&client_id="     + "1JHU2ziXvIPIsSgPlDz9ZhBbmRQ6Zz13Cpb2fSlp" +
-                "&scope="  + "identificacao email documentos_pessoais" +
-                "&redirect_uri="  + "http://localhost:8080/";
+//        String loginUrl = "https://suap.ifrn.edu.br/o/authorize/" +
+//                "?response_type=" + "token" +
+//                "&grant_type="    + "implicit" +
+//                "&client_id="     + "1JHU2ziXvIPIsSgPlDz9ZhBbmRQ6Zz13Cpb2fSlp" +
+//                "&scope="  + "identificacao email documentos_pessoais" +
+//                "&redirect_uri="  + "http://localhost:8080/";
 
 
 //        return http
