@@ -1,7 +1,5 @@
 package com.dticnat.controleimpressao.controller;
 
-
-
 import com.dticnat.controleimpressao.model.Copy;
 import com.dticnat.controleimpressao.model.Request;
 import com.dticnat.controleimpressao.service.CopyService;
@@ -60,8 +58,6 @@ public class RequestController {
                     .body(mensagemErro);
         }
 
-
-
         // 3.4 Associar cópias à solicitação
         List<Copy> copies = request.getCopies();
         copies.forEach((copy)-> {
@@ -75,11 +71,11 @@ public class RequestController {
         return ResponseEntity.status(HttpStatus.CREATED).body(newRequest);
     }
 
-//    // 4. Atualizar o status da solicitação para 1 (concluída)
-//    @PatchMapping("/{id}/status")
-//    public ResponseEntity<?> concludeStatusSolicitacao(@PathVariable Long id) {
-//        return (solicitacaoService.concludeStatusbyId(id)) ?
-//                ResponseEntity.ok("Status da solicitação com ID " + id + " atualizado para fechada.") :
-//                ResponseEntity.status(HttpStatus.NOT_FOUND).body("Solicitação com ID " + id + " não encontrada.");
-//    }
+    // 4. Atualizar o status da solicitação para 1 (concluída)
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<?> concludeStatusSolicitacao(@PathVariable Long id) {
+        return (requestService.concludeStatusbyId(id)) ?
+                ResponseEntity.ok("Status da solicitação com ID " + id + " atualizado para fechada.") :
+                ResponseEntity.status(HttpStatus.NOT_FOUND).body("Solicitação com ID " + id + " não encontrada.");
+    }
 }

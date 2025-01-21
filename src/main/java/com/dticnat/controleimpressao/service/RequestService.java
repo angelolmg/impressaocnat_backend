@@ -41,7 +41,6 @@ public class RequestService {
 
         if (solicitacao.isPresent()) {
             Request tmp = solicitacao.get();
-//            tmp.setStatusSolicitacao(1);
             tmp.setConclusionDate(System.currentTimeMillis());
             requestRepository.save(tmp);
 
@@ -50,15 +49,8 @@ public class RequestService {
         return false;
     }
 
-
     // Cria nova solicitação no banco de dados
     public Request create(Request request) {
-
-//        // 1. Gerar número da solicitação
-//        solicitacao.setNumeroSolicitacao(findAll().size());
-
-        // 2. Garantir que o status seja sempre 0 (em aberto) quando a solicitação for criada
-//        solicitacao.setStatusSolicitacao(0);
 
         // 3. Configurar data de criação da solicitação em unix time
         request.setCreationDate(System.currentTimeMillis());
@@ -66,7 +58,7 @@ public class RequestService {
         // 4. Data de conclusão na criação é 0
         request.setConclusionDate(0);
 
-        // 6. Verificar número de páginas total para cópias
+        // TODO: 6. Verificar número de páginas total para cópias
         // ...
 
         // 7. Persistir a solicitação no banco de dados
@@ -95,7 +87,7 @@ public class RequestService {
                 Copy copy = request.getCopies().get(i);
 
                 // Define o caminho do arquivo
-                String filePath = userPath + "/" + copy.getFileName() + "." + copy.getFileType();
+                String filePath = userPath + "/" + copy.getFileName();
 
                 // Salva o arquivo no disco
                 file.transferTo(new File(filePath));
