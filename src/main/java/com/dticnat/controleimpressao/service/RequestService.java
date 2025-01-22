@@ -101,4 +101,12 @@ public class RequestService {
 
         return "";
     }
+
+    public boolean removeRequest(Long id) {
+        Optional<Request> solicitacao = findById(id);
+        if (solicitacao.isEmpty()) return false;
+
+        requestRepository.delete(solicitacao.get());
+        return true;
+    }
 }

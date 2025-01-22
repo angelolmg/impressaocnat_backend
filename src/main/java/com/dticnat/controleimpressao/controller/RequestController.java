@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -73,9 +74,16 @@ public class RequestController {
 
     // 4. Atualizar o status da solicitação para 1 (concluída)
     @PatchMapping("/{id}/status")
-    public ResponseEntity<?> concludeStatusSolicitacao(@PathVariable Long id) {
+    public ResponseEntity<String> concludeStatusSolicitacao(@PathVariable Long id) {
         return (requestService.concludeStatusbyId(id)) ?
                 ResponseEntity.ok("Status da solicitação com ID " + id + " atualizado para fechada.") :
                 ResponseEntity.status(HttpStatus.NOT_FOUND).body("Solicitação com ID " + id + " não encontrada.");
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Map<String,String>> removeRequest(@PathVariable Long id) {
+        return (requestService.removeRequest(id)) ?
+                ResponseEntity.ok(Map.of("message","Solicitação com ID " + id + " removida com sucesso.")) :
+                ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message","Solicitação com ID " + id + " não encontrada."));
     }
 }
