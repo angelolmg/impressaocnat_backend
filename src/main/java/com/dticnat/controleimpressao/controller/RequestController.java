@@ -1,9 +1,9 @@
 package com.dticnat.controleimpressao.controller;
 
-import com.dticnat.controleimpressao.model.Copy;
 import com.dticnat.controleimpressao.model.Request;
 import com.dticnat.controleimpressao.service.CopyService;
 import com.dticnat.controleimpressao.service.RequestService;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -42,6 +42,38 @@ public class RequestController {
                         .body("Solicitação com ID " + id + " não encontrada."));
     }
 
+    @PatchMapping(value = "/{id}", consumes = {"multipart/form-data"})
+    public ResponseEntity<?> patchRequest(@PathVariable Long id,
+                                               @RequestPart("solicitacao") @Valid Request request,
+                                               @RequestPart("arquivos") List<MultipartFile> arquivos) {
+
+        String mensagemErro = requestService.saveFiles(request, arquivos);
+
+        if (!mensagemErro.isBlank()) {
+            // TODO: Lógica de remoção de arquivos
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(mensagemErro);
+        }
+
+        copyService.instanceCopies(request);
+
+        Request oldRequest = requestService.findById(id).get();
+        oldRequest = copyService.removeOldCopies(oldRequest);
+        requestService.save(oldRequest);
+
+        Request myRequest2;
+
+        try {
+            myRequest2 = requestService.patch(id, request);
+        } catch (EntityNotFoundException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ex.getMessage());
+        }
+
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(myRequest2);
+    }
+
     // 3. Criar uma nova solicitação
     @PostMapping(consumes = {"multipart/form-data"})
     public ResponseEntity<?> criarSolicitacao(
@@ -59,13 +91,8 @@ public class RequestController {
                     .body(mensagemErro);
         }
 
-        // 3.4 Associar cópias à solicitação
-        List<Copy> copies = request.getCopies();
-        copies.forEach((copy)-> {
-            copy.setRequestId(request.getId());
-            copy.setFileInDisk(true);
-            copyService.create(copy);
-        });
+        // 3.4 Instanciar e associar cópias à solicitação
+        copyService.instanceCopies(request);
 
         // 3.5 Criar nova a solicitação no banco de dados
         Request newRequest = requestService.create(request);
@@ -81,9 +108,9 @@ public class RequestController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Map<String,String>> removeRequest(@PathVariable Long id) {
+    public ResponseEntity<Map<String, String>> removeRequest(@PathVariable Long id) {
         return (requestService.removeRequest(id)) ?
-                ResponseEntity.ok(Map.of("message","Solicitação com ID " + id + " removida com sucesso.")) :
-                ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message","Solicitação com ID " + id + " não encontrada."));
+                ResponseEntity.ok(Map.of("message", "Solicitação com ID " + id + " removida com sucesso.")) :
+                ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Solicitação com ID " + id + " não encontrada."));
     }
 }

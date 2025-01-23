@@ -45,7 +45,7 @@ public class Request {
     @NotNull(message = "O matrícula associada não pode ser nula.")
     private long registration;
 
-    @OneToMany
+    @OneToMany(cascade=CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name="request_id", referencedColumnName="id")
     @NotEmpty(message = "Deve haver pelo menos uma cópia na solicitação.")
     private List<Copy> copies;

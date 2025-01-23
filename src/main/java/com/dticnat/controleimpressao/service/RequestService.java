@@ -4,6 +4,7 @@ package com.dticnat.controleimpressao.service;
 import com.dticnat.controleimpressao.model.Copy;
 import com.dticnat.controleimpressao.model.Request;
 import com.dticnat.controleimpressao.repository.RequestRepository;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -65,6 +66,19 @@ public class RequestService {
         return requestRepository.save(request);
     }
 
+    public Request patch(Long id, Request newRequest) {
+        Optional<Request> request = findById(id);
+
+        if (request.isPresent()) {
+            newRequest.setId(request.get().getId());
+            newRequest.setConclusionDate(request.get().getConclusionDate());
+            newRequest.setCreationDate(request.get().getCreationDate());
+            return requestRepository.save(newRequest);
+        }
+            throw new EntityNotFoundException("Solicitação com ID " + id + " não encontrada");
+    }
+
+
     public boolean existsById(Long id) {
         return requestRepository.existsById(id);
     }
@@ -108,5 +122,9 @@ public class RequestService {
 
         requestRepository.delete(solicitacao.get());
         return true;
+    }
+
+    public Request save(Request request) {
+        return requestRepository.save(request);
     }
 }

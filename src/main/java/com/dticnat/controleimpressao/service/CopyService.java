@@ -1,7 +1,9 @@
 package com.dticnat.controleimpressao.service;
 
 import com.dticnat.controleimpressao.model.Copy;
+import com.dticnat.controleimpressao.model.Request;
 import com.dticnat.controleimpressao.repository.CopyRepository;
+import com.dticnat.controleimpressao.repository.RequestRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -44,5 +46,25 @@ public class CopyService {
             return true;
         }
         return false;
+    }
+
+    public void instanceCopies(Request request) {
+        List<Copy> copies = request.getCopies();
+        copies.forEach((copy)-> {
+            copy.setRequestId(request.getId());
+            copy.setFileInDisk(true);
+            create(copy);
+        });
+    }
+
+    public Request removeOldCopies(Request oldRequest) {
+        List<Copy> oldCopies = oldRequest.getCopies();
+        oldRequest.getCopies().clear();
+
+        oldCopies.forEach((copy) -> {
+            copyRepository.delete(copy);
+        });
+
+        return oldRequest;
     }
 }

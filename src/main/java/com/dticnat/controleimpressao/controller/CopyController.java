@@ -16,7 +16,14 @@ public class CopyController {
     @Autowired
     private CopyService copyService;
 
-    // 1. Atualizar somente o atributo "numeroCopiasRequisitadas" de uma cópia existente
+    // 1. Listar todas as copias
+    @GetMapping
+    public ResponseEntity<List<Copy>> getAllCopies() {
+        List<Copy> copies = copyService.findAll();
+        return ResponseEntity.ok(copies);
+    }
+
+    // 2. Atualizar somente o atributo "numeroCopiasRequisitadas" de uma cópia existente
     // TODO validar se o número é positivo e não nulo
     @PatchMapping("/{id}/{numeroCopias}")
     public ResponseEntity<?> updateNumeroCopiasRequisitadas(@PathVariable Long id, @PathVariable int numeroCopias) {
