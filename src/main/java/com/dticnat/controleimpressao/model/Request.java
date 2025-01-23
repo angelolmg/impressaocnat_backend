@@ -27,9 +27,6 @@ public class Request {
     @Max(value = 172800, message = "O prazo deve ser no máximo 48 horas (172800 segundos).")
     private int term;
 
-//    // Status da solicitação (0 = em aberto, 1 = fechada)
-//    private int statusSolicitacao = 0;
-
     // Data de solicitação em Unix time
     private long creationDate;
 

@@ -30,6 +30,10 @@ public class CopyService {
         return copyRepository.existsById(id);
     }
 
+    public List<Copy> findAllByRequestId(Long id) {
+        return copyRepository.findAllByRequestId(id);
+    }
+
     public boolean updateCopyCount(Long copyId, int copyCount) {
         Optional<Copy> copiaOptional = findById(copyId);
 
