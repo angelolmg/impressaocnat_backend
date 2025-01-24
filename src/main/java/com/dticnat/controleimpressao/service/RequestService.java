@@ -12,8 +12,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 
 @Service
@@ -75,7 +75,7 @@ public class RequestService {
             newRequest.setCreationDate(request.get().getCreationDate());
             return requestRepository.save(newRequest);
         }
-            throw new EntityNotFoundException("Solicitação com ID " + id + " não encontrada");
+        throw new NoSuchElementException("Solicitação com ID " + id + " não encontrada");
     }
 
 
@@ -83,11 +83,44 @@ public class RequestService {
         return requestRepository.existsById(id);
     }
 
-    public String saveFiles(Request request, List<MultipartFile> arquivos) {
-        // Valida se o número de arquivos corresponde às cópias
-        if (arquivos.size() != request.getCopies().size()) {
-            return "O número de arquivos enviados não corresponde ao número de cópias.";
-        }
+    private List<Copy> filterNewCopies(Request comingRequest) {
+        // Busca a solicitação base no repositório usando o ID da solicitação que está chegando
+        return requestRepository.findById(comingRequest.getId())
+                .map(baseRequest -> {
+                    // Obtém a lista de cópias da solicitação base (existente)
+                    List<Copy> existingCopies = baseRequest.getCopies();
+
+                    // Filtra as cópias da nova solicitação
+                    return comingRequest.getCopies().stream()
+                            .filter(newCopy ->
+                                    // Verifica se a cópia não existe na solicitação base
+                                    existingCopies.stream()
+                                            .noneMatch(existingCopy ->
+                                                    // Compara os nomes dos arquivos
+                                                    Objects.equals(existingCopy.getFileName(), newCopy.getFileName())
+                                            )
+                            )
+                            .collect(Collectors.toList());
+                })
+                // Se a solicitação base não for encontrada, retorna as cópias da nova solicitação
+                .orElse(comingRequest.getCopies());
+    }
+
+    // Retorna uma lista de cópias que é diferença entre a lista de cópias da primeira com a segunda
+    // Retorna: set(c) = set(a.copias()) - set(b.copias())
+    private List<Copy> filterDiffCopies(Request firstRequest, Request secondRequest) {
+        Set<String> secondRequestFileNames = secondRequest.getCopies().stream()
+                .map(Copy::getFileName)
+                .collect(Collectors.toSet());
+
+        return firstRequest.getCopies().stream()
+                .filter(fCopy -> !secondRequestFileNames.contains(fCopy.getFileName()))
+                .collect(Collectors.toList());
+    }
+
+    private String tryToSaveLocally(Request request, List<MultipartFile> files) {
+        if (files.size() != request.getCopies().size())
+            return "O número de arquivos enviados não corresponde ao número de cópias";
 
         String userPath = baseDir + request.getRegistration();
 
@@ -96,8 +129,8 @@ public class RequestService {
             java.nio.file.Files.createDirectories(java.nio.file.Paths.get(userPath));
 
             // Itera sobre os arquivos e salva
-            for (int i = 0; i < arquivos.size(); i++) {
-                MultipartFile file = arquivos.get(i);
+            for (int i = 0; i < files.size(); i++) {
+                MultipartFile file = files.get(i);
                 Copy copy = request.getCopies().get(i);
 
                 // Define o caminho do arquivo
@@ -107,13 +140,24 @@ public class RequestService {
                 file.transferTo(new File(filePath));
             }
 
+            return "";
+
         } catch (IOException e) {
             return "Erro IO: " + e.getMessage();
         } catch (Exception e) {
             return "Erro inesperado: " + e.getMessage();
         }
+    }
 
-        return "";
+    public String saveFiles(Request comingRequest, List<MultipartFile> files, Boolean isNewRequest) {
+        // Se não é uma nova solicitação, é edição de uma solicitação existente
+        if (!isNewRequest) {
+            Request baseRequest = requestRepository.findById(comingRequest.getId()).get();
+            List<Copy> diffCopies = filterDiffCopies(comingRequest, baseRequest);
+            comingRequest.setCopies(diffCopies);
+        }
+
+        return tryToSaveLocally(comingRequest, files);
     }
 
     public boolean removeRequest(Long id) {

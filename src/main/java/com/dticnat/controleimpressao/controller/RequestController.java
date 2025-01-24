@@ -13,6 +13,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 
 @RestController
@@ -47,7 +48,7 @@ public class RequestController {
                                                @RequestPart("solicitacao") @Valid Request request,
                                                @RequestPart("arquivos") List<MultipartFile> arquivos) {
 
-        String mensagemErro = requestService.saveFiles(request, arquivos);
+        String mensagemErro = requestService.saveFiles(request, arquivos, false);
 
         if (!mensagemErro.isBlank()) {
             // TODO: Lógica de remoção de arquivos
@@ -65,7 +66,7 @@ public class RequestController {
 
         try {
             myRequest2 = requestService.patch(id, request);
-        } catch (EntityNotFoundException ex) {
+        } catch (NoSuchElementException ex) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(ex.getMessage());
         }
@@ -81,7 +82,7 @@ public class RequestController {
             @RequestPart("arquivos") List<MultipartFile> arquivos) {
 
         // 3.2 Salvar os arquivos em disco
-        String mensagemErro = requestService.saveFiles(request, arquivos);
+        String mensagemErro = requestService.saveFiles(request, arquivos, true);
 
         // 3.3 Lógica para quando há erro de salvamento IO
         // Se um arquivo da solicitação dá erro, os demais salvos anteriormente devem ser excluídos
