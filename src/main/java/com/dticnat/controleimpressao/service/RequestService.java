@@ -118,8 +118,20 @@ public class RequestService {
                 .collect(Collectors.toList());
     }
 
-    private String tryToSaveLocally(Request request, List<MultipartFile> files) {
-        if (files.size() != request.getCopies().size())
+
+    public String saveFiles(Request request, List<MultipartFile> files, Boolean isNewRequest) {
+        List<Copy> copiesToUpload = request.getCopies();
+
+        // Se não é uma nova solicitação, é edição de uma solicitação existente
+        if (!isNewRequest) {
+            Request baseRequest = requestRepository.findById(request.getId()).get();
+
+            // Filtrar copias a adicionar à solicitação, caso hajam, caso contrário retorna []
+            copiesToUpload = filterDiffCopies(request, baseRequest);
+        }
+
+        // Checar se o número de arquivos anexados é igual ao número de objetos de cópia
+        if (files.size() != copiesToUpload.size())
             return "O número de arquivos enviados não corresponde ao número de cópias";
 
         String userPath = baseDir + request.getRegistration();
@@ -131,7 +143,7 @@ public class RequestService {
             // Itera sobre os arquivos e salva
             for (int i = 0; i < files.size(); i++) {
                 MultipartFile file = files.get(i);
-                Copy copy = request.getCopies().get(i);
+                Copy copy = copiesToUpload.get(i);
 
                 // Define o caminho do arquivo
                 String filePath = userPath + "/" + copy.getFileName();
@@ -147,17 +159,7 @@ public class RequestService {
         } catch (Exception e) {
             return "Erro inesperado: " + e.getMessage();
         }
-    }
 
-    public String saveFiles(Request comingRequest, List<MultipartFile> files, Boolean isNewRequest) {
-        // Se não é uma nova solicitação, é edição de uma solicitação existente
-        if (!isNewRequest) {
-            Request baseRequest = requestRepository.findById(comingRequest.getId()).get();
-            List<Copy> diffCopies = filterDiffCopies(comingRequest, baseRequest);
-            comingRequest.setCopies(diffCopies);
-        }
-
-        return tryToSaveLocally(comingRequest, files);
     }
 
     public boolean removeRequest(Long id) {

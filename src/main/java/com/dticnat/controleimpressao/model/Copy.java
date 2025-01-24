@@ -33,7 +33,7 @@ public class Copy {
 
     private int pageCount;
 
-    private Boolean fileInDisk;
+    private Boolean fileInDisk = true;
 
     @Column(name="request_id")
     private Long requestId;

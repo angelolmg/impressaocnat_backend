@@ -3,7 +3,6 @@ package com.dticnat.controleimpressao.controller;
 import com.dticnat.controleimpressao.model.Request;
 import com.dticnat.controleimpressao.service.CopyService;
 import com.dticnat.controleimpressao.service.RequestService;
-import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -11,10 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Optional;
+import java.util.*;
 
 @RestController
 @RequestMapping("/solicitacoes")
@@ -45,8 +41,10 @@ public class RequestController {
 
     @PatchMapping(value = "/{id}", consumes = {"multipart/form-data"})
     public ResponseEntity<?> patchRequest(@PathVariable Long id,
-                                               @RequestPart("solicitacao") @Valid Request request,
-                                               @RequestPart("arquivos") List<MultipartFile> arquivos) {
+                                          @RequestPart("solicitacao") @Valid Request request,
+                                          @RequestPart(value = "arquivos", required = false) List<MultipartFile> arquivos) {
+
+        if (arquivos == null) arquivos = new ArrayList<>();
 
         String mensagemErro = requestService.saveFiles(request, arquivos, false);
 
@@ -55,12 +53,6 @@ public class RequestController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(mensagemErro);
         }
-
-        copyService.instanceCopies(request);
-
-        Request oldRequest = requestService.findById(id).get();
-        oldRequest = copyService.removeOldCopies(oldRequest);
-        requestService.save(oldRequest);
 
         Request myRequest2;
 
