@@ -4,7 +4,6 @@ package com.dticnat.controleimpressao.service;
 import com.dticnat.controleimpressao.model.Copy;
 import com.dticnat.controleimpressao.model.Request;
 import com.dticnat.controleimpressao.repository.RequestRepository;
-import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -14,7 +13,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
-
 
 @Service
 public class RequestService {
@@ -40,14 +38,13 @@ public class RequestService {
     public boolean concludeStatusbyId(Long id) {
         Optional<Request> solicitacao = findById(id);
 
-        if (solicitacao.isPresent()) {
-            Request tmp = solicitacao.get();
-            tmp.setConclusionDate(System.currentTimeMillis());
-            requestRepository.save(tmp);
+        if (solicitacao.isEmpty()) return false;
 
-            return true;
-        }
-        return false;
+        Request tmp = solicitacao.get();
+        tmp.setConclusionDate(System.currentTimeMillis());
+        requestRepository.save(tmp);
+
+        return true;
     }
 
     // Cria nova solicitação no banco de dados
@@ -69,41 +66,13 @@ public class RequestService {
     public Request patch(Long id, Request newRequest) {
         Optional<Request> request = findById(id);
 
-        if (request.isPresent()) {
-            newRequest.setId(request.get().getId());
-            newRequest.setConclusionDate(request.get().getConclusionDate());
-            newRequest.setCreationDate(request.get().getCreationDate());
-            return requestRepository.save(newRequest);
-        }
-        throw new NoSuchElementException("Solicitação com ID " + id + " não encontrada");
-    }
+        if (request.isEmpty()) throw new NoSuchElementException("Solicitação com ID " + id + " não encontrada");
 
+        newRequest.setId(request.get().getId());
+        newRequest.setConclusionDate(request.get().getConclusionDate());
+        newRequest.setCreationDate(request.get().getCreationDate());
 
-    public boolean existsById(Long id) {
-        return requestRepository.existsById(id);
-    }
-
-    private List<Copy> filterNewCopies(Request comingRequest) {
-        // Busca a solicitação base no repositório usando o ID da solicitação que está chegando
-        return requestRepository.findById(comingRequest.getId())
-                .map(baseRequest -> {
-                    // Obtém a lista de cópias da solicitação base (existente)
-                    List<Copy> existingCopies = baseRequest.getCopies();
-
-                    // Filtra as cópias da nova solicitação
-                    return comingRequest.getCopies().stream()
-                            .filter(newCopy ->
-                                    // Verifica se a cópia não existe na solicitação base
-                                    existingCopies.stream()
-                                            .noneMatch(existingCopy ->
-                                                    // Compara os nomes dos arquivos
-                                                    Objects.equals(existingCopy.getFileName(), newCopy.getFileName())
-                                            )
-                            )
-                            .collect(Collectors.toList());
-                })
-                // Se a solicitação base não for encontrada, retorna as cópias da nova solicitação
-                .orElse(comingRequest.getCopies());
+        return requestRepository.save(newRequest);
     }
 
     // Retorna uma lista de cópias que é diferença entre a lista de cópias da primeira com a segunda
@@ -159,7 +128,6 @@ public class RequestService {
         } catch (Exception e) {
             return "Erro inesperado: " + e.getMessage();
         }
-
     }
 
     public boolean removeRequest(Long id) {
@@ -168,9 +136,5 @@ public class RequestService {
 
         requestRepository.delete(solicitacao.get());
         return true;
-    }
-
-    public Request save(Request request) {
-        return requestRepository.save(request);
     }
 }

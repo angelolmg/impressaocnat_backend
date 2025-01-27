@@ -54,17 +54,16 @@ public class RequestController {
                     .body(mensagemErro);
         }
 
-        Request myRequest2;
+        Request editedRequest;
 
         try {
-            myRequest2 = requestService.patch(id, request);
+            editedRequest = requestService.patch(id, request);
         } catch (NoSuchElementException ex) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(ex.getMessage());
         }
 
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(myRequest2);
+        return ResponseEntity.ok(editedRequest);
     }
 
     // 3. Criar uma nova solicitação
