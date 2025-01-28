@@ -1,6 +1,5 @@
 package com.dticnat.controleimpressao.service;
 
-
 import com.dticnat.controleimpressao.model.Copy;
 import com.dticnat.controleimpressao.model.Request;
 import com.dticnat.controleimpressao.repository.RequestRepository;
@@ -34,14 +33,18 @@ public class RequestService {
         return requestRepository.findById(id);
     }
 
-    // Atualiza o status da solicitação para '1' (concluída)
-    public boolean concludeStatusbyId(Long id) {
+    // Atualiza o status da solicitação para concluída
+    public boolean toogleConclusionDatebyId(Long id) {
         Optional<Request> solicitacao = findById(id);
 
         if (solicitacao.isEmpty()) return false;
 
         Request tmp = solicitacao.get();
-        tmp.setConclusionDate(System.currentTimeMillis());
+        if (tmp.getConclusionDate() > 0) {
+            tmp.setConclusionDate(0);
+        } else {
+            tmp.setConclusionDate(System.currentTimeMillis());
+        }
         requestRepository.save(tmp);
 
         return true;
@@ -87,7 +90,6 @@ public class RequestService {
                 .collect(Collectors.toList());
     }
 
-
     public String saveFiles(Request request, List<MultipartFile> files, Boolean isNewRequest) {
         List<Copy> copiesToUpload = request.getCopies();
 
@@ -100,8 +102,13 @@ public class RequestService {
         }
 
         // Checar se o número de arquivos anexados é igual ao número de objetos de cópia
-        if (files.size() != copiesToUpload.size())
+        // Aqui significa que não foram enviados arquivos anexos suficientes
+        if (files.size() < copiesToUpload.size())
             return "O número de arquivos enviados não corresponde ao número de cópias";
+
+        // Aqui significa que arquivo(s) anexado(s) de mesmo nome já existe(m) na solicitação, não sobreescrever
+        if (files.size() > copiesToUpload.size())
+            return "";
 
         String userPath = baseDir + request.getRegistration();
 
