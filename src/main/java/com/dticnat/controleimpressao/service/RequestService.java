@@ -26,7 +26,7 @@ public class RequestService {
     private String baseDir;
 
     public List<Request> findAll() {
-        return requestRepository.findAll();
+        return requestRepository.findAllByOrderByIdAsc();
     }
 
     public Optional<Request> findById(Long id) {

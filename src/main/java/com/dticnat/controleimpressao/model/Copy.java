@@ -23,7 +23,7 @@ public class Copy {
     @NotEmpty(message = "O nome do arquivo não pode ser vazio.")
     private String fileName;
 
-    @NotNull(message = "A extensão do arquivo (pdf, docx) não pode ser nulo.")
+    @NotNull(message = "A extensão do arquivo (pdf, docx) não pode ser nula.")
     @NotEmpty(message = "A extensão do arquivo (pdf, docx) não pode ser vazia.")
     private String fileType;
 

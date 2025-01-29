@@ -9,5 +9,5 @@ import java.util.List;
 
 @Repository
 public interface CopyRepository extends JpaRepository<Copy, Long> {
-    List<Copy> findAllByRequestId(Long id);
+    List<Copy> findAllByRequestIdOrderByIdAsc(Long id);
 }

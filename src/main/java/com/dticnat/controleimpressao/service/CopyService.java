@@ -32,7 +32,7 @@ public class CopyService {
     }
 
     public List<Copy> findAllByRequestId(Long id) {
-        return copyRepository.findAllByRequestId(id);
+        return copyRepository.findAllByRequestIdOrderByIdAsc(id);
     }
 
     // Cria objetos de cópias de uma dada solicitação

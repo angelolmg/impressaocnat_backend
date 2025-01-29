@@ -48,5 +48,6 @@ public class Request {
     @OneToMany(cascade=CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name="request_id", referencedColumnName="id")
     @NotEmpty(message = "Deve haver pelo menos uma cópia na solicitação.")
+    @OrderBy("id ASC")
     private List<Copy> copies;
 }
