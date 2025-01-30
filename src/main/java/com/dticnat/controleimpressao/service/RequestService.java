@@ -3,8 +3,13 @@ package com.dticnat.controleimpressao.service;
 import com.dticnat.controleimpressao.model.Copy;
 import com.dticnat.controleimpressao.model.Request;
 import com.dticnat.controleimpressao.repository.RequestRepository;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -12,6 +17,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
+
 
 @Service
 public class RequestService {
@@ -25,12 +31,40 @@ public class RequestService {
     @Value("${arquivos.base-dir}")
     private String baseDir;
 
-    public List<Request> findAll() {
-        return requestRepository.findAllByOrderByIdAsc();
+    public List<Request> findAll(Long startDate, Long endDate, String query, String userRegistration) {
+        Specification<Request> spec = filterRequests(startDate, endDate, query, userRegistration);
+        return requestRepository.findAll(spec);
     }
 
     public Optional<Request> findById(Long id) {
         return requestRepository.findById(id);
+    }
+
+    public Specification<Request> filterRequests(Long startDate, Long endDate, String userQuery, String userRegistration) {
+        return (Root<Request> root, CriteriaQuery<?> query, CriteriaBuilder cb) -> {
+            Predicate predicate = cb.conjunction();
+
+            if (startDate != null && endDate != null) {
+                predicate = cb.and(predicate, cb.greaterThanOrEqualTo(root.get("creationDate"), startDate));
+                predicate = cb.and(predicate, cb.lessThanOrEqualTo(root.get("creationDate"), endDate));
+            }
+
+            if (userQuery != null && !userQuery.isEmpty()) {
+            // Testar se query é o prazo da solicitação
+                try {
+                    int userTerm = Integer.parseInt(userQuery) * 60 * 60;
+                    predicate = cb.and(predicate, cb.equal(root.get("term"), userTerm));
+                } catch (NumberFormatException ex) {
+                    // Error handling
+                }
+            }
+
+            if(userRegistration != null) {
+                predicate = cb.and(predicate, cb.equal(root.get("registration"), userRegistration));
+            }
+
+            return predicate;
+        };
     }
 
     // Atualiza o status da solicitação para concluída

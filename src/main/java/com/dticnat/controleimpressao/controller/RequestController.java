@@ -1,6 +1,8 @@
 package com.dticnat.controleimpressao.controller;
 
 import com.dticnat.controleimpressao.model.Request;
+import com.dticnat.controleimpressao.model.dto.UserData;
+import com.dticnat.controleimpressao.service.AuthService;
 import com.dticnat.controleimpressao.service.CopyService;
 import com.dticnat.controleimpressao.service.RequestService;
 import jakarta.validation.Valid;
@@ -22,10 +24,28 @@ public class RequestController {
     @Autowired
     private CopyService copyService;
 
+    @Autowired
+    private AuthService authService;
+
     // 1. Listar todas as solicitações
     @GetMapping
-    public ResponseEntity<List<Request>> getAllSolicitacoes() {
-        List<Request> solicitacoes = requestService.findAll();
+    public ResponseEntity<List<Request>> getAllSolicitacoes(
+            @RequestHeader(name = "Authorization") String fullToken,
+            @RequestParam(value = "startDate", required = false) Long startDate,
+            @RequestParam(value = "endDate", required = false) Long endDate,
+            @RequestParam(value = "query", required = false) String query) {
+
+        // Buscar dados do usuário
+        UserData userData = authService.getUserData(fullToken);
+
+        // Verificar se o mesmo é admin
+        boolean isAdmin = userData != null && authService.isAdmin(userData.getMatricula());
+
+        // Se for admin retornaremos TODAS as solicitações, não passmos filtro de matrícula
+        // Se não for, passamos a matrícula como filtro
+        String userRegistration = isAdmin ? null : userData.getMatricula();
+
+        List<Request> solicitacoes = requestService.findAll(startDate, endDate, query, userRegistration);
         return ResponseEntity.ok(solicitacoes);
     }
 
