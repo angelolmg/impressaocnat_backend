@@ -30,7 +30,8 @@ public class RequestController {
     // 1. Listar todas as solicitações
     @GetMapping
     public ResponseEntity<?> getAllSolicitacoes(
-            @RequestHeader(name = "Authorization") String fullToken,
+            @RequestHeader(name = "Authorization", required = false) String fullToken,
+            @RequestParam(value = "filtering", required = false) Boolean filtering,
             @RequestParam(value = "startDate", required = false) Long startDate,
             @RequestParam(value = "endDate", required = false) Long endDate,
             @RequestParam(value = "query", required = false) String query) {
@@ -42,14 +43,17 @@ public class RequestController {
         // Buscar dados do usuário
         UserData userData = authService.getUserData(fullToken);
         if (userData == null)
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Usuário não autorizado.");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Usuário não encontrado.");
 
         // Verificar se o mesmo é admin
         boolean isAdmin = authService.isAdmin(userData.getMatricula());
 
-        // Se for admin retornaremos TODAS as solicitações, não passmos filtro de matrícula
+        // Se for admin retornaremos TODAS as solicitações, não passamos filtro de matrícula
         // Se não for, passamos a matrícula como filtro
-        String userRegistration = isAdmin ? null : userData.getMatricula();
+        // A não ser que o admin esteja filtrando seus resultados para receber apenas as próprias solicitações
+        String userRegistration = (!isAdmin || (filtering != null && filtering))
+                ? userData.getMatricula()
+                : null;
 
         List<Request> solicitacoes = requestService.findAll(startDate, endDate, query, userRegistration);
         return ResponseEntity.ok(solicitacoes);
