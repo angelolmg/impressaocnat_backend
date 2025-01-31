@@ -9,6 +9,7 @@ import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -33,7 +34,7 @@ public class RequestService {
 
     public List<Request> findAll(Long startDate, Long endDate, String query, String userRegistration) {
         Specification<Request> spec = filterRequests(startDate, endDate, query, userRegistration);
-        return requestRepository.findAll(spec);
+        return requestRepository.findAll(spec, Sort.by(Sort.Direction.ASC, "id"));
     }
 
     public Optional<Request> findById(Long id) {

@@ -19,11 +19,20 @@ public class AuthService {
                 .defaultHeader("Authorization", authToken)
                 .build();
 
-        return restClient.get().uri("/api/rh/meus-dados/").retrieve().body(UserData.class);
+        UserData userData;
+
+        try {
+            userData = restClient.get().uri("/api/rh/meus-dados/").retrieve().body(UserData.class);
+            return userData;
+
+        } catch(Exception e) {
+            return null;
+        }
     }
 
     public boolean isAdmin(String registration) {
         if(registration == null) return false;
         return Arrays.asList(adminRegistrations).contains(registration);
     }
+
 }

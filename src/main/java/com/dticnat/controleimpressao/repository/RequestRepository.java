@@ -10,6 +10,4 @@ import java.util.List;
 
 @Repository
 public interface RequestRepository extends JpaRepository<Request, Long>, JpaSpecificationExecutor<Request> {
-
-//    List<Request> findAllByOrderByIdAsc(Specification<Request> spec);
 }
