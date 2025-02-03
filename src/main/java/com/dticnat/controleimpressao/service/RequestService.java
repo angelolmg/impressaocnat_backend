@@ -1,7 +1,10 @@
 package com.dticnat.controleimpressao.service;
 
+import com.dticnat.controleimpressao.exception.FileGoneException;
+import com.dticnat.controleimpressao.exception.UnauthorizedException;
 import com.dticnat.controleimpressao.model.Copy;
 import com.dticnat.controleimpressao.model.Request;
+import com.dticnat.controleimpressao.model.dto.UserData;
 import com.dticnat.controleimpressao.repository.RequestRepository;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
@@ -9,13 +12,19 @@ import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -29,8 +38,11 @@ public class RequestService {
     @Autowired
     private CopyService copyService;
 
+    @Autowired
+    private AuthService authService;
+
     @Value("${arquivos.base-dir}")
-    private String baseDir;
+    private String BASE_DIR;
 
     public List<Request> findAll(Long startDate, Long endDate, String query, String userRegistration) {
         Specification<Request> spec = filterRequests(startDate, endDate, query, userRegistration);
@@ -51,7 +63,7 @@ public class RequestService {
             }
 
             if (userQuery != null && !userQuery.isEmpty()) {
-            // Testar se query é o prazo da solicitação
+                // Testar se query é o prazo da solicitação
                 try {
                     int userTerm = Integer.parseInt(userQuery) * 60 * 60;
                     predicate = cb.and(predicate, cb.equal(root.get("term"), userTerm));
@@ -60,7 +72,7 @@ public class RequestService {
                 }
             }
 
-            if(userRegistration != null) {
+            if (userRegistration != null) {
                 predicate = cb.and(predicate, cb.equal(root.get("registration"), userRegistration));
             }
 
@@ -113,18 +125,6 @@ public class RequestService {
         return requestRepository.save(newRequest);
     }
 
-    // Retorna uma lista de cópias que é diferença entre a lista de cópias da primeira com a segunda
-    // Retorna: set(c) = set(a.copias()) - set(b.copias())
-    private List<Copy> filterDiffCopies(Request firstRequest, Request secondRequest) {
-        Set<String> secondRequestFileNames = secondRequest.getCopies().stream()
-                .map(Copy::getFileName)
-                .collect(Collectors.toSet());
-
-        return firstRequest.getCopies().stream()
-                .filter(fCopy -> !secondRequestFileNames.contains(fCopy.getFileName()))
-                .collect(Collectors.toList());
-    }
-
     public String saveFiles(Request request, List<MultipartFile> files, Boolean isNewRequest) {
         List<Copy> copiesToUpload = request.getCopies();
 
@@ -142,14 +142,13 @@ public class RequestService {
             return "O número de arquivos enviados não corresponde ao número de cópias";
 
         // Aqui significa que arquivo(s) anexado(s) de mesmo nome já existe(m) na solicitação, não sobreescrever
-        if (files.size() > copiesToUpload.size())
-            return "";
+        if (files.size() > copiesToUpload.size()) return "";
 
-        String userPath = baseDir + request.getRegistration();
+        String requestPath = BASE_DIR + request.getRegistration() + '/' + request.getId();
 
         try {
             // Cria o diretório do usuário, se necessário
-            java.nio.file.Files.createDirectories(java.nio.file.Paths.get(userPath));
+            java.nio.file.Files.createDirectories(java.nio.file.Paths.get(requestPath));
 
             // Itera sobre os arquivos e salva
             for (int i = 0; i < files.size(); i++) {
@@ -157,7 +156,7 @@ public class RequestService {
                 Copy copy = copiesToUpload.get(i);
 
                 // Define o caminho do arquivo
-                String filePath = userPath + "/" + copy.getFileName();
+                String filePath = requestPath + "/" + copy.getFileName();
 
                 // Salva o arquivo no disco
                 file.transferTo(new File(filePath));
@@ -178,5 +177,91 @@ public class RequestService {
 
         requestRepository.delete(solicitacao.get());
         return true;
+    }
+
+    public ResponseEntity<?> getFileResponse(String fullToken, Long requestID, String fileName) throws IOException {
+
+        // 1. Validar token e obter usuário
+        UserData userData = getAuthenticatedUser(fullToken);
+
+        // 2. Buscar a solicitação no banco
+        Request request = findById(requestID)
+                            .orElseThrow(() -> new FileNotFoundException("Solicitação com ID: " + requestID + " não existe."));
+
+        // 3. Verificar se o usuário tem permissão para acessar o arquivo
+        validateUserAccess(userData, request);
+
+        // 4. Buscar se o arquivo existe dentro da solicitação
+        Copy copy = request.getCopies()
+                            .stream()
+                            .filter(c -> Objects.equals(c.getFileName(), fileName))
+                            .findFirst().orElseThrow(() -> new FileNotFoundException("O arquivo " + fileName + " não existe."));
+
+        // 5. Criar resposta com o arquivo
+        return buildFileResponse(userData, requestID, copy);
+    }
+
+// ============================================================= //
+// 🔹 Métodos auxiliares
+// ============================================================= //
+
+    // ✅ Valida o token e obtém os dados do usuário autenticado
+    private UserData getAuthenticatedUser(String fullToken) {
+        UserData userData = authService.getUserData(fullToken);
+        if (userData == null) {
+            throw new UnauthorizedException("Usuário não encontrado.");
+        }
+        return userData;
+    }
+
+    // ✅ Converte e valida o ID da solicitação
+    private long parseRequestID(String requestID) {
+        try {
+            return Long.parseLong(requestID);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("ID da solicitação inválido.");
+        }
+    }
+
+    // ✅ Verifica se o usuário tem permissão para acessar a solicitação
+    private void validateUserAccess(UserData userData, Request request) {
+        boolean isAdmin = authService.isAdmin(userData.getMatricula());
+        if (!isAdmin) {
+            String requestOwner = String.valueOf(request.getRegistration());
+            if (!userData.getMatricula().equals(requestOwner)) {
+                throw new UnauthorizedException("Usuário não autorizado.");
+            }
+        }
+    }
+
+    // ✅ Verifica se o arquivo está disponível e lança exceções apropriadas
+    // ✅ Constrói a resposta HTTP com o arquivo
+    private ResponseEntity<?> buildFileResponse(UserData userData, Long requestID, Copy copy) throws IOException {
+
+        if (!copy.getFileInDisk()) {
+            throw new FileGoneException("O arquivo " + copy.getFileName() + " não está mais disponível.");
+        }
+
+        String fileLocation = BASE_DIR + "/" + userData.getMatricula() + "/" + requestID + "/" + copy.getFileName();
+        File downloadFile = new File(fileLocation);
+
+        if (!downloadFile.exists()) {
+            throw new FileNotFoundException("O arquivo " + copy.getFileName() + " não foi encontrado no sistema.");
+        }
+
+        ByteArrayInputStream in = new ByteArrayInputStream(Files.readAllBytes(downloadFile.toPath()));
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("Content-Disposition", "attachment; filename=" + copy.getFileName());
+        headers.add("Content-Type", copy.getFileType());
+
+        return ResponseEntity.ok().headers(headers).body(new InputStreamResource(in));
+    }
+
+    // Retorna uma lista de cópias que é diferença entre a lista de cópias da primeira com a segunda
+    // Retorna: set(c) = set(a.copias()) - set(b.copias())
+    private List<Copy> filterDiffCopies(Request firstRequest, Request secondRequest) {
+        Set<String> secondRequestFileNames = secondRequest.getCopies().stream().map(Copy::getFileName).collect(Collectors.toSet());
+
+        return firstRequest.getCopies().stream().filter(fCopy -> !secondRequestFileNames.contains(fCopy.getFileName())).collect(Collectors.toList());
     }
 }

@@ -1,5 +1,7 @@
 package com.dticnat.controleimpressao.controller;
 
+import com.dticnat.controleimpressao.exception.FileGoneException;
+import com.dticnat.controleimpressao.exception.UnauthorizedException;
 import com.dticnat.controleimpressao.model.Request;
 import com.dticnat.controleimpressao.model.dto.UserData;
 import com.dticnat.controleimpressao.service.AuthService;
@@ -12,6 +14,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.*;
 
 @RestController
@@ -69,6 +73,31 @@ public class RequestController {
                         .body("Solicitação com ID " + id + " não encontrada."));
     }
 
+    // Buscar e baixar arquivo em disco
+    @GetMapping("/{id}/{fileName}")
+    public ResponseEntity<?> downloadFile(@RequestHeader(name = "Authorization", required = false) String fullToken,
+                                          @PathVariable Long id,
+                                          @PathVariable String fileName) {
+
+        if (fullToken == null)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Token de acesso não encontrado. Por favor, realizar login.");
+
+        try {
+            // Chama o serviço para realizar a lógica de validação e busca do arquivo
+            return requestService.getFileResponse(fullToken, id, fileName);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        } catch (UnauthorizedException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
+        } catch (FileNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (FileGoneException e) {
+            return ResponseEntity.status(HttpStatus.GONE).body(e.getMessage());
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erro ao processar o arquivo.");
+        }
+    }
+
     @PatchMapping(value = "/{id}", consumes = {"multipart/form-data"})
     public ResponseEntity<?> patchRequest(@PathVariable Long id,
                                           @RequestPart("solicitacao") @Valid Request request,
@@ -102,22 +131,24 @@ public class RequestController {
             @RequestPart("solicitacao") @Valid Request request,
             @RequestPart("arquivos") List<MultipartFile> files) {
 
-        // 3.2 Salvar os arquivos em disco
-        String mensagemErro = requestService.saveFiles(request, files, true);
-
-        // 3.3 Lógica para quando há erro de salvamento IO
-        // Se um arquivo da solicitação dá erro, os demais salvos anteriormente devem ser excluídos
-        if (!mensagemErro.isBlank()) {
-            // TODO: Lógica de remoção de arquivos
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(mensagemErro);
-        }
-
         // 3.4 Instanciar e associar cópias à solicitação
         copyService.instanceCopies(request);
 
         // 3.5 Criar nova a solicitação no banco de dados
         Request newRequest = requestService.create(request);
+
+        // 3.2 Salvar os arquivos em disco
+        String mensagemErro = requestService.saveFiles(newRequest, files, true);
+
+        // 3.3 Lógica para quando há erro de salvamento IO
+        // Se um arquivo da solicitação dá erro, os demais salvos anteriormente devem ser excluídos
+        if (!mensagemErro.isBlank()) {
+            // TODO: Lógica de remoção de arquivos
+            requestService.removeRequest(newRequest.getId());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(mensagemErro);
+        }
+
         return ResponseEntity.status(HttpStatus.CREATED).body(newRequest);
     }
 

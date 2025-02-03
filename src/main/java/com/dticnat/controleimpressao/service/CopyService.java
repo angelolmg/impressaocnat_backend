@@ -38,7 +38,7 @@ public class CopyService {
     // Cria objetos de cópias de uma dada solicitação
     public void instanceCopies(Request request) {
         List<Copy> copies = request.getCopies();
-        copies.forEach((copy)-> {
+        copies.forEach((copy) -> {
             copy.setRequestId(request.getId());
             copy.setFileInDisk(true);
             create(copy);
