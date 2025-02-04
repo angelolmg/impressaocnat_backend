@@ -43,7 +43,7 @@ public class Request {
 
     // A matrícula do usuário solicitante
     @NotNull(message = "O matrícula associada não pode ser nula.")
-    private long registration;
+    private String registration;
 
     @OneToMany(cascade=CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name="request_id", referencedColumnName="id")

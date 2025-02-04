@@ -6,10 +6,7 @@ import com.dticnat.controleimpressao.model.Copy;
 import com.dticnat.controleimpressao.model.Request;
 import com.dticnat.controleimpressao.model.dto.UserData;
 import com.dticnat.controleimpressao.repository.RequestRepository;
-import jakarta.persistence.criteria.CriteriaBuilder;
-import jakarta.persistence.criteria.CriteriaQuery;
-import jakarta.persistence.criteria.Predicate;
-import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.InputStreamResource;
@@ -57,26 +54,46 @@ public class RequestService {
         return (Root<Request> root, CriteriaQuery<?> query, CriteriaBuilder cb) -> {
             Predicate predicate = cb.conjunction();
 
-            if (startDate != null && endDate != null) {
+            // TODO: converter para lógica utilizando LocalDateTime
+            // Checando query de data
+            // Converter as datas salvas para o início do dia, então comparar
+            if (startDate != null) {
                 predicate = cb.and(predicate, cb.greaterThanOrEqualTo(root.get("creationDate"), startDate));
-                predicate = cb.and(predicate, cb.lessThanOrEqualTo(root.get("creationDate"), endDate));
             }
 
-            if (userQuery != null && !userQuery.isEmpty()) {
-                // Testar se query é o prazo da solicitação
-                try {
-                    int userTerm = Integer.parseInt(userQuery) * 60 * 60;
-                    predicate = cb.and(predicate, cb.equal(root.get("term"), userTerm));
-                } catch (NumberFormatException ex) {
-                    // Error handling
-                }
+            if (endDate != null) {
+                // 'endDate' deve ser o timestamp do inicio do último dia
+                // Adicionamos 86400000 (unixtime em ms para 1 dia) para incluir solicitações deste dia também
+                predicate = cb.and(predicate, cb.lessThanOrEqualTo(root.get("creationDate"), endDate + 86400000));
             }
 
+            // Filtragem de solicitação por matrícula
             if (userRegistration != null) {
                 predicate = cb.and(predicate, cb.equal(root.get("registration"), userRegistration));
             }
 
-            return predicate;
+            Predicate queryPredicate = cb.conjunction();
+
+            // Checando query de texto
+            if (userQuery != null && !userQuery.isEmpty()) {
+                // Testar se query é nome do solicitante
+                queryPredicate = cb.and(queryPredicate, cb.like(cb.lower(cb.trim(root.get("username"))), "%" + userQuery.trim().toLowerCase() + "%"));
+
+                // Testar se query é matrícula
+                queryPredicate = cb.or(queryPredicate, cb.like(cb.trim(root.get("registration")), "%" + userQuery.trim() + "%"));
+
+                // Testar se query é o prazo da solicitação
+                try {
+                    int userTerm = Integer.parseInt(userQuery) * 60 * 60;
+                    queryPredicate = cb.or(queryPredicate, cb.equal(root.get("term"), userTerm));
+
+                } catch (NumberFormatException ex) {
+                    // Error handling
+                    System.err.print("[RequestService] Não foi possivel converter query para inteiro.");
+                }
+            }
+
+            return cb.and(predicate, queryPredicate);
         };
     }
 
@@ -185,8 +202,7 @@ public class RequestService {
         UserData userData = getAuthenticatedUser(fullToken);
 
         // 2. Buscar a solicitação no banco
-        Request request = findById(requestID)
-                            .orElseThrow(() -> new FileNotFoundException("Solicitação com ID: " + requestID + " não existe."));
+        Request request = findById(requestID).orElseThrow(() -> new FileNotFoundException("Solicitação com ID: " + requestID + " não existe."));
 
         // 3. Verificar se o usuário tem permissão para acessar o arquivo
         validateUserAccess(userData, request);
@@ -195,7 +211,8 @@ public class RequestService {
         Copy copy = request.getCopies()
                             .stream()
                             .filter(c -> Objects.equals(c.getFileName(), fileName))
-                            .findFirst().orElseThrow(() -> new FileNotFoundException("O arquivo " + fileName + " não existe."));
+                                                .findFirst()
+                                                .orElseThrow(() -> new FileNotFoundException("O arquivo " + fileName + " não existe."));
 
         // 5. Criar resposta com o arquivo
         return buildFileResponse(userData, requestID, copy);
