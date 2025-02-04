@@ -47,7 +47,7 @@ public class RequestController {
         // Buscar dados do usuário
         UserData userData = authService.getUserData(fullToken);
         if (userData == null)
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Usuário não encontrado.");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Usuário não encontrado.");
 
         // Verificar se o mesmo é admin
         boolean isAdmin = authService.isAdmin(userData.getMatricula());

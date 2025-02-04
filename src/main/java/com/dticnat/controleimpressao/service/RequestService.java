@@ -97,13 +97,21 @@ public class RequestService {
         };
     }
 
+    public boolean belongsToUserCheck(Long requestId, UserData userData) {
+        Optional<Request> request = findById(requestId);
+        if (request.isEmpty()) return false;
+
+        Request tmp = request.get();
+        return tmp.getRegistration().equals(userData.getMatricula());
+    }
+
     // Atualiza o status da solicitação para concluída
     public boolean toogleConclusionDatebyId(Long id) {
-        Optional<Request> solicitacao = findById(id);
+        Optional<Request> request = findById(id);
 
-        if (solicitacao.isEmpty()) return false;
+        if (request.isEmpty()) return false;
 
-        Request tmp = solicitacao.get();
+        Request tmp = request.get();
         if (tmp.getConclusionDate() > 0) {
             tmp.setConclusionDate(0);
         } else {
