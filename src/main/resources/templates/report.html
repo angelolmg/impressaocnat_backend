@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <title>Relatório de Solicitações</title>
+  <style>
+    /* Adicionar estilo para a tabela */
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    table, th, td {
+        border: 1px solid black;
+    }
+
+    th, td {
+        padding: 8px;
+        text-align: left;
+    }
+  </style>
+</head>
+<body>
+<h2 th:text="${institutionName}">Instituição</h2>
+
+<h2>Relatório de Solicitações (<span th:text="${totalRequests}">0</span>)</h2>
+
+<p><strong>Relatório Gerado em:</strong> <span th:text="${reportGenerationDate}">Data</span></p>
+<p><strong>Contagem Final de Páginas:</strong> <span th:text="${totalPageCount}">0</span></p>
+
+<table>
+  <thead>
+  <tr>
+    <th>ID</th>
+    <th>Usuário</th>
+    <th>Matrícula</th>
+    <th>Data de Criação</th>
+    <th>Prazo (horas)</th>
+    <th>Data de Conclusão</th>
+    <th>Cópias</th>
+    <th>Total de Páginas</th>
+  </tr>
+  </thead>
+  <tbody>
+  <tr th:each="request : ${requests}">
+    <td th:text="${request.id}"></td>
+    <td th:text="${request.username}"></td>
+    <td th:text="${request.registration}"></td>
+    <td th:text="${#dates.format(request.creationDate, 'dd/MM/yyyy HH:mm:ss')}"></td>
+    <td th:text="${request.term / (60 * 60)}"></td>
+    <td th:text="${request.conclusionDate > 0 ? #dates.format(request.conclusionDate, 'dd/MM/yyyy HH:mm:ss') : '-'}"></td>
+    <td>
+      <table>
+        <thead>
+        <tr>
+          <th>Arquivo</th>
+          <th>Nº de Cópias</th>
+          <th>Nº de Páginas</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="copy : ${request.copies}">
+          <td th:text="${copy.fileName}"></td>
+          <td th:text="${copy.copyCount}"></td>
+          <td th:text="${copy.pageCount}"></td>
+        </tr>
+        </tbody>
+      </table>
+    </td>
+    <td th:text="${request.totalPageCount}"></td>
+  </tr>
+  </tbody>
+</table>
+
+</body>
+</html>
