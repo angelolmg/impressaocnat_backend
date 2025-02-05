@@ -41,8 +41,8 @@ public class RequestService {
     @Value("${arquivos.base-dir}")
     private String BASE_DIR;
 
-    public List<Request> findAll(Long startDate, Long endDate, String query, String userRegistration) {
-        Specification<Request> spec = filterRequests(startDate, endDate, query, userRegistration);
+    public List<Request> findAll(Long startDate, Long endDate, String query, Boolean is_concluded, String userRegistration) {
+        Specification<Request> spec = filterRequests(startDate, endDate, query, is_concluded, userRegistration);
         return requestRepository.findAll(spec, Sort.by(Sort.Direction.ASC, "id"));
     }
 
@@ -50,7 +50,7 @@ public class RequestService {
         return requestRepository.findById(id);
     }
 
-    public Specification<Request> filterRequests(Long startDate, Long endDate, String userQuery, String userRegistration) {
+    public Specification<Request> filterRequests(Long startDate, Long endDate, String userQuery, Boolean is_concluded, String userRegistration) {
         return (Root<Request> root, CriteriaQuery<?> query, CriteriaBuilder cb) -> {
             Predicate predicate = cb.conjunction();
 
@@ -65,6 +65,13 @@ public class RequestService {
                 // 'endDate' deve ser o timestamp do inicio do último dia
                 // Adicionamos 86400000 (unixtime em ms para 1 dia) para incluir solicitações deste dia também
                 predicate = cb.and(predicate, cb.lessThanOrEqualTo(root.get("creationDate"), endDate + 86400000));
+            }
+
+            if(is_concluded != null) {
+                // Filtrar entre apenas concluidos ou não concluídos
+                // Se 'is_concluded' == null, significa que tudo será retornado
+                if(is_concluded) predicate = cb.and(predicate, cb.greaterThan(root.get("conclusionDate"), 0));
+                else predicate = cb.and(predicate, cb.equal(root.get("conclusionDate"), 0));
             }
 
             // Filtragem de solicitação por matrícula

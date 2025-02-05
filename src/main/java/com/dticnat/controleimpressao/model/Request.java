@@ -31,6 +31,7 @@ public class Request {
     private long creationDate;
 
     // Data de conclusão em Unix time
+    // Padrão para não concluído = 0
     private long conclusionDate = 0;
 
     // Número de páginas total

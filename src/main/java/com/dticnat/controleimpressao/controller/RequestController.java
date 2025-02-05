@@ -36,6 +36,7 @@ public class RequestController {
     public ResponseEntity<?> getAllSolicitacoes(
             @RequestHeader(name = "Authorization", required = false) String fullToken,
             @RequestParam(value = "filtering", required = false) Boolean filtering,
+            @RequestParam(value = "concluded", required = false) Boolean is_concluded,
             @RequestParam(value = "startDate", required = false) Long startDate,
             @RequestParam(value = "endDate", required = false) Long endDate,
             @RequestParam(value = "query", required = false) String query) {
@@ -59,7 +60,7 @@ public class RequestController {
                 ? userData.getMatricula()
                 : null;
 
-        List<Request> solicitacoes = requestService.findAll(startDate, endDate, query, userRegistration);
+        List<Request> solicitacoes = requestService.findAll(startDate, endDate, query, is_concluded, userRegistration);
         return ResponseEntity.ok(solicitacoes);
     }
 
