@@ -22,6 +22,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -67,10 +68,10 @@ public class RequestService {
                 predicate = cb.and(predicate, cb.lessThanOrEqualTo(root.get("creationDate"), endDate + 86400000));
             }
 
-            if(is_concluded != null) {
+            if (is_concluded != null) {
                 // Filtrar entre apenas concluidos ou não concluídos
                 // Se 'is_concluded' == null, significa que tudo será retornado
-                if(is_concluded) predicate = cb.and(predicate, cb.greaterThan(root.get("conclusionDate"), 0));
+                if (is_concluded) predicate = cb.and(predicate, cb.greaterThan(root.get("conclusionDate"), 0));
                 else predicate = cb.and(predicate, cb.equal(root.get("conclusionDate"), 0));
             }
 
@@ -159,13 +160,18 @@ public class RequestService {
 
     public String saveFiles(Request request, List<MultipartFile> files, Boolean isNewRequest) {
         List<Copy> copiesToUpload = request.getCopies();
+        List<Copy> copiesToDelete = null;
 
         // Se não é uma nova solicitação, é edição de uma solicitação existente
         if (!isNewRequest) {
-            Request baseRequest = requestRepository.findById(request.getId()).get();
+            Optional<Request> baseRequest = requestRepository.findById(request.getId());
 
-            // Filtrar copias a adicionar à solicitação, caso hajam, caso contrário retorna []
-            copiesToUpload = filterDiffCopies(request, baseRequest);
+            if (baseRequest.isPresent()) {
+                // Filtrar copias a adicionar à solicitação, caso hajam, caso contrário retorna []
+                Map<String, List<Copy>> result = filterUploadDeleteFiles(request, baseRequest.get());
+                copiesToUpload = result.get("toUpload");
+                copiesToDelete = result.get("toDelete");
+            } else return "Solicitação não encontrada";
         }
 
         // Checar se o número de arquivos anexados é igual ao número de objetos de cópia
@@ -182,6 +188,9 @@ public class RequestService {
             // Cria o diretório do usuário, se necessário
             java.nio.file.Files.createDirectories(java.nio.file.Paths.get(requestPath));
 
+            // Caso seja edição, remove arquivos obsoletos
+            if (!isNewRequest) deleteFiles(copiesToDelete, requestPath);
+
             // Itera sobre os arquivos e salva
             for (int i = 0; i < files.size(); i++) {
                 MultipartFile file = files.get(i);
@@ -196,6 +205,8 @@ public class RequestService {
 
             return "";
 
+        } catch (SecurityException e){
+            return  "Erro de segurança: " + e.getMessage();
         } catch (IOException e) {
             return "Erro IO: " + e.getMessage();
         } catch (Exception e) {
@@ -204,10 +215,20 @@ public class RequestService {
     }
 
     public boolean removeRequest(Long id) {
-        Optional<Request> solicitacao = findById(id);
-        if (solicitacao.isEmpty()) return false;
+        Optional<Request> request = findById(id);
+        if (request.isEmpty()) return false;
 
-        requestRepository.delete(solicitacao.get());
+        // Remover arquivos
+        String requestPath = BASE_DIR + request.get().getRegistration() + '/' + request.get().getId();
+        deleteFiles(request.get().getCopies(), requestPath);
+
+        try {
+            Files.deleteIfExists(Paths.get(requestPath));
+        } catch (Exception e) {
+            System.out.println("Erro ao deletar diretório: " + e);
+        }
+
+        requestRepository.delete(request.get());
         return true;
     }
 
@@ -224,20 +245,20 @@ public class RequestService {
 
         // 4. Buscar se o arquivo existe dentro da solicitação
         Copy copy = request.getCopies()
-                            .stream()
-                            .filter(c -> Objects.equals(c.getFileName(), fileName))
-                                                .findFirst()
-                                                .orElseThrow(() -> new FileNotFoundException("O arquivo " + fileName + " não existe."));
+                .stream()
+                .filter(c -> Objects.equals(c.getFileName(), fileName))
+                .findFirst()
+                .orElseThrow(() -> new FileNotFoundException("O arquivo " + fileName + " não existe."));
 
         // 5. Criar resposta com o arquivo
         return buildFileResponse(userData, requestID, copy);
     }
 
 // ============================================================= //
-// 🔹 Métodos auxiliares
+//  Métodos auxiliares
 // ============================================================= //
 
-    // ✅ Valida o token e obtém os dados do usuário autenticado
+    // Valida o token e obtém os dados do usuário autenticado
     private UserData getAuthenticatedUser(String fullToken) {
         UserData userData = authService.getUserData(fullToken);
         if (userData == null) {
@@ -246,7 +267,7 @@ public class RequestService {
         return userData;
     }
 
-    // ✅ Converte e valida o ID da solicitação
+    // Converte e valida o ID da solicitação
     private long parseRequestID(String requestID) {
         try {
             return Long.parseLong(requestID);
@@ -255,7 +276,7 @@ public class RequestService {
         }
     }
 
-    // ✅ Verifica se o usuário tem permissão para acessar a solicitação
+    // Verifica se o usuário tem permissão para acessar a solicitação
     private void validateUserAccess(UserData userData, Request request) {
         boolean isAdmin = authService.isAdmin(userData.getMatricula());
         if (!isAdmin) {
@@ -266,8 +287,8 @@ public class RequestService {
         }
     }
 
-    // ✅ Verifica se o arquivo está disponível e lança exceções apropriadas
-    // ✅ Constrói a resposta HTTP com o arquivo
+    // Verifica se o arquivo está disponível e lança exceções apropriadas
+    // Constrói a resposta HTTP com o arquivo
     private ResponseEntity<?> buildFileResponse(UserData userData, Long requestID, Copy copy) throws IOException {
 
         if (!copy.getFileInDisk()) {
@@ -289,11 +310,49 @@ public class RequestService {
         return ResponseEntity.ok().headers(headers).body(new InputStreamResource(in));
     }
 
-    // Retorna uma lista de cópias que é diferença entre a lista de cópias da primeira com a segunda
-    // Retorna: set(c) = set(a.copias()) - set(b.copias())
-    private List<Copy> filterDiffCopies(Request firstRequest, Request secondRequest) {
-        Set<String> secondRequestFileNames = secondRequest.getCopies().stream().map(Copy::getFileName).collect(Collectors.toSet());
+    private Map<String, List<Copy>> filterUploadDeleteFiles(Request firstRequest, Request secondRequest) {
+        Set<String> firstFileNames = getFileNamesFromRequest(firstRequest);
+        Set<String> secondFileNames = getFileNamesFromRequest(secondRequest);
 
-        return firstRequest.getCopies().stream().filter(fCopy -> !secondRequestFileNames.contains(fCopy.getFileName())).collect(Collectors.toList());
+        // (A - B)
+        List<Copy> toUpload = firstRequest.getCopies().stream()
+                .filter(copy -> !secondFileNames.contains(copy.getFileName()))
+                .toList();
+
+        // (B - A)
+        List<Copy> toDelete = secondRequest.getCopies().stream()
+                .filter(copy -> !firstFileNames.contains(copy.getFileName()))
+                .toList();
+
+        return Map.of(
+                "toUpload", toUpload,
+                "toDelete", toDelete
+        );
+    }
+
+    private Set<String> getFileNamesFromRequest(Request request) {
+        return request.getCopies().stream()
+                .map(Copy::getFileName)
+                .collect(Collectors.toSet());
+    }
+
+    private void deleteFiles(List<Copy> copies, String basePath) {
+        if (copies != null && !copies.isEmpty()) {
+            for (Copy copy : copies) {
+                String filePath = basePath + "/" + copy.getFileName();
+                File fileToDelete = new File(filePath);
+
+                if (fileToDelete.exists()) {
+                    if (fileToDelete.delete()) {
+                        // File deleted successfully
+                        System.out.println("File deleted: " + filePath);
+                    } else {
+                        System.out.println("Failed to delete file: " + filePath); // Or handle the error differently
+                    }
+                } else {
+                    System.out.println("File not found: " + filePath); // Or handle the case where the file doesn't exist
+                }
+            }
+        }
     }
 }
