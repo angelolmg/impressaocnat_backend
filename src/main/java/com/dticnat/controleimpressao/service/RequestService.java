@@ -7,6 +7,7 @@ import com.dticnat.controleimpressao.model.Request;
 import com.dticnat.controleimpressao.model.dto.UserData;
 import com.dticnat.controleimpressao.repository.RequestRepository;
 import jakarta.persistence.criteria.*;
+import org.apache.tomcat.util.http.fileupload.FileUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.InputStreamResource;
@@ -22,7 +23,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -183,13 +183,11 @@ public class RequestService {
         if (files.size() > copiesToUpload.size()) return "";
 
         String requestPath = BASE_DIR + request.getRegistration() + '/' + request.getId();
+        String msg = "";
 
         try {
             // Cria o diretório do usuário, se necessário
             java.nio.file.Files.createDirectories(java.nio.file.Paths.get(requestPath));
-
-            // Caso seja edição, remove arquivos obsoletos
-            if (!isNewRequest) deleteFiles(copiesToDelete, requestPath);
 
             // Itera sobre os arquivos e salva
             for (int i = 0; i < files.size(); i++) {
@@ -203,27 +201,32 @@ public class RequestService {
                 file.transferTo(new File(filePath));
             }
 
-            return "";
-
-        } catch (SecurityException e){
-            return  "Erro de segurança: " + e.getMessage();
+        } catch (SecurityException e) {
+            msg = "Erro de segurança: " + e.getMessage();
         } catch (IOException e) {
-            return "Erro IO: " + e.getMessage();
+            msg = "Erro IO: " + e.getMessage();
         } catch (Exception e) {
-            return "Erro inesperado: " + e.getMessage();
+            msg = "Erro inesperado: " + e.getMessage();
+        } finally {
+            // Se salvar um arquivo da solicitação dá erro, aborte operação e delete os salvos anteriormente 'copiesToUpload'
+            if (!msg.isEmpty()) deleteFiles(copiesToUpload, requestPath);
+
+            // Após salvar arquivo(s), caso seja operação de edição (patch), remover arquivos obsoletos 'copiesToDelete'
+            if (!isNewRequest) deleteFiles(copiesToDelete, requestPath);
         }
+
+        return msg;
     }
 
     public boolean removeRequest(Long id) {
         Optional<Request> request = findById(id);
         if (request.isEmpty()) return false;
 
-        // Remover arquivos
         String requestPath = BASE_DIR + request.get().getRegistration() + '/' + request.get().getId();
-        deleteFiles(request.get().getCopies(), requestPath);
 
         try {
-            Files.deleteIfExists(Paths.get(requestPath));
+            FileUtils.deleteDirectory(new File(requestPath));
+            System.out.println("Diretório removido: " + requestPath);
         } catch (Exception e) {
             System.out.println("Erro ao deletar diretório: " + e);
         }

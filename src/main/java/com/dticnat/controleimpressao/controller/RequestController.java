@@ -109,8 +109,6 @@ public class RequestController {
         String mensagemErro = requestService.saveFiles(request, files, false);
 
         if (!mensagemErro.isBlank()) {
-            // Se um arquivo da solicitação dá erro, os demais salvos anteriormente devem ser excluídos
-            // TODO: Lógica de remoção de arquivos que conseguiram ser salvos, caso dê algum erro no caminho
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(mensagemErro);
         }
@@ -145,7 +143,6 @@ public class RequestController {
         // 3.3 Lógica para quando há erro de salvamento IO
         // Se um arquivo da solicitação dá erro, os demais salvos anteriormente devem ser excluídos
         if (!mensagemErro.isBlank()) {
-            // TODO: Lógica de remoção de arquivos que conseguiram ser salvos, caso dê algum erro no caminho
             requestService.removeRequest(newRequest.getId());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(mensagemErro);
