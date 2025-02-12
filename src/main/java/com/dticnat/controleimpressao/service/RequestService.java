@@ -90,8 +90,12 @@ public class RequestService {
                 // Testar se query é matrícula
                 queryPredicate = cb.or(queryPredicate, cb.like(cb.trim(root.get("registration")), "%" + userQuery.trim() + "%"));
 
-                // Testar se query é o prazo da solicitação
                 try {
+                    // Testar se query é o ID da solicitação
+                    long userId = Long.parseLong(userQuery);
+                    queryPredicate = cb.or(queryPredicate, cb.equal(root.get("id"), userId));
+
+                    // Testar se query é o prazo da solicitação
                     int userTerm = Integer.parseInt(userQuery) * 60 * 60;
                     queryPredicate = cb.or(queryPredicate, cb.equal(root.get("term"), userTerm));
 
