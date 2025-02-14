@@ -35,6 +35,9 @@ public class Copy {
 
     private Boolean fileInDisk = true;
 
+    // Arquivo é físico e não foi anexado digitalmente à solicitação
+    private Boolean isPhysicalFile = false;
+
     @Column(name="request_id")
     private Long requestId;
 }

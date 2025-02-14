@@ -10,12 +10,14 @@ import com.dticnat.controleimpressao.service.RequestService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 @RestController
@@ -33,13 +35,7 @@ public class RequestController {
 
     // 1. Listar todas as solicitações
     @GetMapping
-    public ResponseEntity<?> getAllSolicitacoes(
-            @RequestHeader(name = "Authorization", required = false) String fullToken,
-            @RequestParam(value = "filtering", required = false) Boolean filtering,
-            @RequestParam(value = "concluded", required = false) Boolean is_concluded,
-            @RequestParam(value = "startDate", required = false) Long startDate,
-            @RequestParam(value = "endDate", required = false) Long endDate,
-            @RequestParam(value = "query", required = false) String query) {
+    public ResponseEntity<?> getAllSolicitacoes(@RequestHeader(name = "Authorization", required = false) String fullToken, @RequestParam(value = "filtering", required = false) Boolean filtering, @RequestParam(value = "concluded", required = false) Boolean is_concluded, @RequestParam(value = "startDate", required = false) Long startDate, @RequestParam(value = "endDate", required = false) Long endDate, @RequestParam(value = "query", required = false) String query) {
 
         // Possui um token (está logado)
         if (fullToken == null)
@@ -47,8 +43,7 @@ public class RequestController {
 
         // Buscar dados do usuário
         UserData userData = authService.getUserData(fullToken);
-        if (userData == null)
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Usuário não encontrado.");
+        if (userData == null) return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Usuário não encontrado.");
 
         // Verificar se o mesmo é admin
         boolean isAdmin = authService.isAdmin(userData.getMatricula());
@@ -56,9 +51,7 @@ public class RequestController {
         // Se for admin retornaremos TODAS as solicitações, não passamos filtro de matrícula
         // Se não for, passamos a matrícula como filtro
         // A não ser que o admin esteja filtrando seus resultados para receber apenas as próprias solicitações
-        String userRegistration = (!isAdmin || (filtering != null && filtering))
-                ? userData.getMatricula()
-                : null;
+        String userRegistration = (!isAdmin || (filtering != null && filtering)) ? userData.getMatricula() : null;
 
         List<Request> solicitacoes = requestService.findAll(startDate, endDate, query, is_concluded, userRegistration);
         return ResponseEntity.ok(solicitacoes);
@@ -69,48 +62,53 @@ public class RequestController {
     public ResponseEntity<?> getSolicitacaoById(@PathVariable Long id) {
         Optional<Request> solicitacao = requestService.findById(id);
 
-        return solicitacao.<ResponseEntity<?>>map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body("Solicitação com ID " + id + " não encontrada."));
+        return solicitacao.<ResponseEntity<?>>map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body("Solicitação com ID " + id + " não encontrada."));
     }
 
     // Buscar e baixar arquivo em disco
     @GetMapping("/{id}/{fileName}")
-    public ResponseEntity<?> downloadFile(@RequestHeader(name = "Authorization", required = false) String fullToken,
-                                          @PathVariable Long id,
-                                          @PathVariable String fileName) {
+    public ResponseEntity<?> downloadFile(@RequestHeader(name = "Authorization", required = false) String fullToken, @PathVariable Long id, @PathVariable String fileName) {
 
         if (fullToken == null)
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Token de acesso não encontrado. Por favor, realizar login.");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .body("Token de acesso não encontrado. Por favor, realizar login.".getBytes(StandardCharsets.UTF_8));
 
         try {
             // Chama o serviço para realizar a lógica de validação e busca do arquivo
             return requestService.getFileResponse(fullToken, id, fileName);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .body(e.getMessage().getBytes(StandardCharsets.UTF_8));
         } catch (UnauthorizedException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .body(e.getMessage().getBytes(StandardCharsets.UTF_8));
         } catch (FileNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .body(e.getMessage().getBytes(StandardCharsets.UTF_8));
         } catch (FileGoneException e) {
-            return ResponseEntity.status(HttpStatus.GONE).body(e.getMessage());
+            return ResponseEntity.status(HttpStatus.GONE)
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .body(e.getMessage().getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erro ao processar o arquivo.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .body("Erro ao processar o arquivo.".getBytes(StandardCharsets.UTF_8));
         }
     }
 
     @PatchMapping(value = "/{id}", consumes = {"multipart/form-data"})
-    public ResponseEntity<?> patchRequest(@PathVariable Long id,
-                                          @RequestPart("solicitacao") @Valid Request request,
-                                          @RequestPart(value = "arquivos", required = false) List<MultipartFile> files) {
+    public ResponseEntity<?> patchRequest(@PathVariable Long id, @RequestPart("solicitacao") @Valid Request request, @RequestPart(value = "arquivos", required = false) List<MultipartFile> files) {
 
         if (files == null) files = new ArrayList<>();
 
         String mensagemErro = requestService.saveFiles(request, files, false);
 
         if (!mensagemErro.isBlank()) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(mensagemErro);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(mensagemErro);
         }
 
         Request editedRequest;
@@ -118,8 +116,7 @@ public class RequestController {
         try {
             editedRequest = requestService.patch(id, request);
         } catch (NoSuchElementException ex) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(ex.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());
         }
 
         return ResponseEntity.ok(editedRequest);
@@ -127,9 +124,7 @@ public class RequestController {
 
     // 3. Criar uma nova solicitação
     @PostMapping(consumes = {"multipart/form-data"})
-    public ResponseEntity<?> criarSolicitacao(
-            @RequestPart("solicitacao") @Valid Request request,
-            @RequestPart("arquivos") List<MultipartFile> files) {
+    public ResponseEntity<?> criarSolicitacao(@RequestPart("solicitacao") @Valid Request request, @RequestPart("arquivos") List<MultipartFile> files) {
 
         // 3.4 Instanciar e associar cópias à solicitação
         copyService.instanceCopies(request);
@@ -144,8 +139,7 @@ public class RequestController {
         // Se um arquivo da solicitação dá erro, os demais salvos anteriormente devem ser excluídos
         if (!mensagemErro.isBlank()) {
             requestService.removeRequest(newRequest.getId());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(mensagemErro);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(mensagemErro);
         }
 
         return ResponseEntity.status(HttpStatus.CREATED).body(newRequest);
@@ -154,15 +148,11 @@ public class RequestController {
     // 4. Atualizar o status da solicitação para 1 (concluída)
     @PatchMapping("/{id}/status")
     public ResponseEntity<Map<String, String>> concludeStatusSolicitacao(@PathVariable Long id) {
-        return (requestService.toogleConclusionDatebyId(id)) ?
-                ResponseEntity.ok(Map.of("message", "Status da solicitação (ID " + id + ") atualizado.")) :
-                ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Solicitação (ID " + id + ") não encontrada."));
+        return (requestService.toogleConclusionDatebyId(id)) ? ResponseEntity.ok(Map.of("message", "Status da solicitação (ID " + id + ") atualizado.")) : ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Solicitação (ID " + id + ") não encontrada."));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, String>> removeRequest(@PathVariable Long id) {
-        return (requestService.removeRequest(id)) ?
-                ResponseEntity.ok(Map.of("message", "Solicitação (ID " + id + ") removida com sucesso.")) :
-                ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Solicitação (ID " + id + ") não encontrada."));
+        return (requestService.removeRequest(id)) ? ResponseEntity.ok(Map.of("message", "Solicitação (ID " + id + ") removida com sucesso.")) : ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Solicitação (ID " + id + ") não encontrada."));
     }
 }

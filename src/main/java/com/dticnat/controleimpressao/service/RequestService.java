@@ -201,8 +201,9 @@ public class RequestService {
                 // Define o caminho do arquivo
                 String filePath = requestPath + "/" + copy.getFileName();
 
-                // Salva o arquivo no disco
-                file.transferTo(new File(filePath));
+                // Salva o arquivo no disco, caso o arquivo não seja nulo
+                if(file.getSize() > 0)
+                    file.transferTo(new File(filePath));
             }
 
         } catch (SecurityException e) {
@@ -297,6 +298,10 @@ public class RequestService {
     // Verifica se o arquivo está disponível e lança exceções apropriadas
     // Constrói a resposta HTTP com o arquivo
     private ResponseEntity<?> buildFileResponse(UserData userData, Long requestID, Copy copy) throws IOException {
+
+        if (copy.getIsPhysicalFile()) {
+            throw new FileNotFoundException("O arquivo é físico e não pode ser encontrado no sistema.");
+        }
 
         if (!copy.getFileInDisk()) {
             throw new FileGoneException("O arquivo " + copy.getFileName() + " não está mais disponível.");
