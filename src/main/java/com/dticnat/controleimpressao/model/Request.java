@@ -32,6 +32,7 @@ public class Request {
 
     // Data de conclusão em Unix time
     // Padrão para não concluído = 0
+    @Builder.Default
     private long conclusionDate = 0;
 
     // Número de páginas total

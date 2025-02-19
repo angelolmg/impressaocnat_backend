@@ -202,19 +202,23 @@ public class RequestService {
                 String filePath = requestPath + "/" + copy.getFileName();
 
                 // Salva o arquivo no disco, caso o arquivo não seja nulo
-                if(file.getSize() > 0)
-                    file.transferTo(new File(filePath));
+                if (file.getSize() > 0) file.transferTo(new File(filePath));
             }
 
         } catch (SecurityException e) {
             msg = "Erro de segurança: " + e.getMessage();
         } catch (IOException e) {
             msg = "Erro IO: " + e.getMessage();
+        } catch (IllegalStateException e) {
+            msg = "Erro de estado ilegal: " + e.getMessage();
         } catch (Exception e) {
             msg = "Erro inesperado: " + e.getMessage();
         } finally {
             // Se salvar um arquivo da solicitação dá erro, aborte operação e delete os salvos anteriormente 'copiesToUpload'
-            if (!msg.isEmpty()) deleteFiles(copiesToUpload, requestPath);
+            if (!msg.isEmpty()) {
+                System.err.println(msg);
+                deleteFiles(copiesToUpload, requestPath);
+            }
 
             // Após salvar arquivo(s), caso seja operação de edição (patch), remover arquivos obsoletos 'copiesToDelete'
             if (!isNewRequest) deleteFiles(copiesToDelete, requestPath);

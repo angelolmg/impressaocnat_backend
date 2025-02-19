@@ -33,9 +33,11 @@ public class Copy {
 
     private int pageCount;
 
+    @Builder.Default
     private Boolean fileInDisk = true;
 
     // Arquivo é físico e não foi anexado digitalmente à solicitação
+    @Builder.Default
     private Boolean isPhysicalFile = false;
 
     @Column(name="request_id")
