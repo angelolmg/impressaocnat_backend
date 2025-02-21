@@ -38,9 +38,6 @@ WORKDIR /app
 # Utilizamos --from=build para especificar que o arquivo deve ser copiado do stage "build"
 COPY --from=build /app/target/controleimpressao-0.0.1-SNAPSHOT.jar .
 
-# Muda o dono do arquivo JAR para o usuário spring
-#RUN chown spring:spring /app/controleimpressao-0.0.1-SNAPSHOT.jar
-
 # Cria o diretório de arquivos
 RUN mkdir -p /app/archives
 
