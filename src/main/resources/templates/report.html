@@ -61,7 +61,7 @@
         </thead>
         <tbody>
         <tr th:each="copy : ${request.copies}">
-          <td th:text="${copy.fileName}"></td>
+          <td th:text="${copy.isPhysicalFile ? copy.fileName + ' (Arquivo Físico)' : copy.fileName}"></td>
           <td th:text="${copy.printConfig.copyCount}"></td>
           <td th:text="${copy.pageCount}"></td>
           <td th:text="${copy.printConfig.sheetsTotal}"></td>
