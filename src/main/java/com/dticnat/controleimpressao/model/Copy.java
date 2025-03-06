@@ -23,18 +23,18 @@ public class Copy {
     @NotEmpty(message = "O nome do arquivo não pode ser vazio.")
     private String fileName;
 
-    @NotNull(message = "A extensão do arquivo (pdf, docx) não pode ser nula.")
-    @NotEmpty(message = "A extensão do arquivo (pdf, docx) não pode ser vazia.")
     private String fileType;
 
-    @NotNull(message = "O número de cópias não pode ser nulo.")
-    @Positive(message = "O número de cópias deve ser positivo.")
-    private int copyCount;
+    @NotNull(message = "O número de páginas não pode ser nulo.")
+    @Positive(message = "O número de páginas deve ser positivo.")
+    private Integer pageCount;
 
-    private int pageCount;
+    @Embedded
+    @NotNull(message = "As configurações de impressão não podem ser nulas.")
+    private PrintConfig printConfig;
 
     @Builder.Default
-    private Boolean fileInDisk = true;
+    private Boolean fileInDisk = false;
 
     // Arquivo é físico e não foi anexado digitalmente à solicitação
     @Builder.Default
@@ -42,4 +42,6 @@ public class Copy {
 
     @Column(name="request_id")
     private Long requestId;
+
+    private String notes;
 }

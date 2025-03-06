@@ -70,38 +70,45 @@ public class RequestController {
     public ResponseEntity<?> downloadFile(@RequestHeader(name = "Authorization", required = false) String fullToken, @PathVariable Long id, @PathVariable String fileName) {
 
         if (fullToken == null)
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .contentType(MediaType.TEXT_PLAIN)
-                    .body("Token de acesso não encontrado. Por favor, realizar login.".getBytes(StandardCharsets.UTF_8));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).contentType(MediaType.TEXT_PLAIN).body("Token de acesso não encontrado. Por favor, realizar login.".getBytes(StandardCharsets.UTF_8));
 
         try {
             // Chama o serviço para realizar a lógica de validação e busca do arquivo
             return requestService.getFileResponse(fullToken, id, fileName);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .contentType(MediaType.TEXT_PLAIN)
-                    .body(e.getMessage().getBytes(StandardCharsets.UTF_8));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).contentType(MediaType.TEXT_PLAIN).body(e.getMessage().getBytes(StandardCharsets.UTF_8));
         } catch (UnauthorizedException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .contentType(MediaType.TEXT_PLAIN)
-                    .body(e.getMessage().getBytes(StandardCharsets.UTF_8));
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).contentType(MediaType.TEXT_PLAIN).body(e.getMessage().getBytes(StandardCharsets.UTF_8));
         } catch (FileNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .contentType(MediaType.TEXT_PLAIN)
-                    .body(e.getMessage().getBytes(StandardCharsets.UTF_8));
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).contentType(MediaType.TEXT_PLAIN).body(e.getMessage().getBytes(StandardCharsets.UTF_8));
         } catch (FileGoneException e) {
-            return ResponseEntity.status(HttpStatus.GONE)
-                    .contentType(MediaType.TEXT_PLAIN)
-                    .body(e.getMessage().getBytes(StandardCharsets.UTF_8));
+            return ResponseEntity.status(HttpStatus.GONE).contentType(MediaType.TEXT_PLAIN).body(e.getMessage().getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .contentType(MediaType.TEXT_PLAIN)
-                    .body("Erro ao processar o arquivo.".getBytes(StandardCharsets.UTF_8));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).contentType(MediaType.TEXT_PLAIN).body("Erro ao processar o arquivo.".getBytes(StandardCharsets.UTF_8));
         }
     }
 
     @PatchMapping(value = "/{id}", consumes = {"multipart/form-data"})
-    public ResponseEntity<?> patchRequest(@PathVariable Long id, @RequestPart("solicitacao") @Valid Request request, @RequestPart(value = "arquivos", required = false) List<MultipartFile> files) {
+    public ResponseEntity<?> patchRequest(@RequestHeader(name = "Authorization", required = false) String fullToken,
+                                          @PathVariable Long id,
+                                          @RequestPart("solicitacao") @Valid Request request,
+                                          @RequestPart(value = "arquivos", required = false) List<MultipartFile> files) {
+
+        // Possui um token (está logado)
+        if (fullToken == null)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Token de acesso não encontrado. Por favor, realizar login.");
+
+        // Buscar dados do usuário
+        UserData userData = authService.getUserData(fullToken);
+        if (userData == null) return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Usuário não encontrado.");
+
+        // Verificar se o mesmo é admin
+        boolean isAdmin = authService.isAdmin(userData.getMatricula());
+
+        // Verificar se solicitação sendo alterada pertence ao usuário tentando editá-la
+        if (!isAdmin && !requestService.belongsTo(id, userData.getMatricula())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Solicitação não pertence ao usuário. Não foi possivel editar.");
+        }
 
         if (files == null) files = new ArrayList<>();
 

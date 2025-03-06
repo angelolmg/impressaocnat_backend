@@ -56,13 +56,15 @@
           <th>Arquivo</th>
           <th>Nº de Cópias</th>
           <th>Nº de Páginas</th>
+          <th>Prévia de Folhas</th>
         </tr>
         </thead>
         <tbody>
         <tr th:each="copy : ${request.copies}">
           <td th:text="${copy.fileName}"></td>
-          <td th:text="${copy.copyCount}"></td>
+          <td th:text="${copy.printConfig.copyCount}"></td>
           <td th:text="${copy.pageCount}"></td>
+          <td th:text="${copy.printConfig.sheetsTotal}"></td>
         </tr>
         </tbody>
       </table>

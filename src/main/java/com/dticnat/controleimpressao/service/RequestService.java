@@ -266,6 +266,15 @@ public class RequestService {
         return buildFileResponse(userData, requestID, copy);
     }
 
+    // Verifica se solicitação pertence ao usuário
+    public boolean belongsTo(Long id, String userRegistration) {
+        Optional<Request> baseRequest = requestRepository.findById(id);
+        if(baseRequest.isEmpty()) return false;
+
+        String requestRegistration = baseRequest.get().getRegistration();
+        return requestRegistration.equals(userRegistration);
+    }
+
 // ============================================================= //
 //  Métodos auxiliares
 // ============================================================= //
@@ -287,6 +296,8 @@ public class RequestService {
             throw new IllegalArgumentException("ID da solicitação inválido.");
         }
     }
+
+
 
     // Verifica se o usuário tem permissão para acessar a solicitação
     private void validateUserAccess(UserData userData, Request request) {

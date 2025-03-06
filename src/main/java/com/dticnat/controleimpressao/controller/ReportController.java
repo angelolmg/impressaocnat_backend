@@ -23,7 +23,6 @@ public class ReportController {
                 .mapToInt(Request::getTotalPageCount)
                 .sum();
 
-
         // Adicionar informações ao modelo
         model.addAttribute("institutionName", "Instituto Federal do Rio Grande do Norte - Natal Central (IFRN - CNAT)");
         model.addAttribute("reportGenerationDate", reportGenerationDate);
