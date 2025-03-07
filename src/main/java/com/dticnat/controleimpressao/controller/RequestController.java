@@ -155,7 +155,7 @@ public class RequestController {
     // 4. Atualizar o status da solicitação para 1 (concluída)
     @PatchMapping("/{id}/status")
     public ResponseEntity<Map<String, String>> concludeStatusSolicitacao(@PathVariable Long id) {
-        return (requestService.toogleConclusionDatebyId(id)) ? ResponseEntity.ok(Map.of("message", "Status da solicitação (ID " + id + ") atualizado.")) : ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Solicitação (ID " + id + ") não encontrada."));
+        return (requestService.toogleConclusionDatebyId(id)) ? ResponseEntity.ok(Map.of("message", "Status da solicitação (ID " + id + ") atualizado.")) : ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("message", "Não foi possivel atualizar status da solicitação (ID " + id + ")."));
     }
 
     @DeleteMapping("/{id}")

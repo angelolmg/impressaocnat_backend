@@ -70,4 +70,16 @@ public class CopyService {
             create(copy);
         });
     }
+
+    // Atualiza status de arquivo 'fileInDisk' de uma cópia salva previamente
+    // Chamada durante a tarefa de deleção de arquivos em uma solicitação obsoleta
+    public void updateFileStatus(Long copyId, boolean status) {
+        Optional<Copy> optCopy = findById(copyId);
+
+        if(optCopy.isEmpty()) return;
+        Copy copy = optCopy.get();
+
+        copy.setFileInDisk(status);
+        create(copy);
+    }
 }

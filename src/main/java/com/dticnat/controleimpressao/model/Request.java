@@ -35,7 +35,14 @@ public class Request {
     @Builder.Default
     private long conclusionDate = 0;
 
-    // Número de páginas total
+    // Indica se uma solicitação está ou não obsoleta/arquivada
+    // Solicitações obsoletas são aquilas que estão fechadas a um determinado tempo
+    // Solicitação fechada, isto é, 'conclusionDate' > 0
+    // Por mais do que FILE_CLEANUP_FR horas (variável de ambiente)
+    @Builder.Default
+    private boolean stale = false;
+
+    // Número de páginas totais
     private int totalPageCount;
 
     // Usuário associado à solicitação

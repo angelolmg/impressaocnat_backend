@@ -8,6 +8,8 @@ import com.dticnat.controleimpressao.model.dto.UserData;
 import com.dticnat.controleimpressao.repository.RequestRepository;
 import jakarta.persistence.criteria.*;
 import org.apache.tomcat.util.http.fileupload.FileUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.InputStreamResource;
@@ -18,12 +20,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.Files;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 
@@ -41,6 +41,11 @@ public class RequestService {
 
     @Value("${arquivos.base-dir}")
     private String BASE_DIR;
+
+    @Value("${arquivos.cleanup-rate-hours}")
+    private Long CLEANUP_RATE_HOURS;
+
+    private static final Logger logger = LoggerFactory.getLogger(RequestService.class);
 
     public List<Request> findAll(Long startDate, Long endDate, String query, Boolean is_concluded, String userRegistration) {
         Specification<Request> spec = filterRequests(startDate, endDate, query, is_concluded, userRegistration);
@@ -100,8 +105,7 @@ public class RequestService {
                     queryPredicate = cb.or(queryPredicate, cb.equal(root.get("term"), userTerm));
 
                 } catch (NumberFormatException ex) {
-                    // Error handling
-                    System.err.print("[RequestService] Não foi possivel converter query para inteiro.");
+                    logger.error("Não foi possivel converter query para inteiro");
                 }
             }
 
@@ -124,14 +128,19 @@ public class RequestService {
         if (request.isEmpty()) return false;
 
         Request tmp = request.get();
-        if (tmp.getConclusionDate() > 0) {
-            tmp.setConclusionDate(0);
-        } else {
-            tmp.setConclusionDate(System.currentTimeMillis());
-        }
-        requestRepository.save(tmp);
 
-        return true;
+        // Não atualize o status de solicitações obsoletas/arquivadas
+        if (!tmp.isStale()) {
+            if (tmp.getConclusionDate() > 0) {
+                tmp.setConclusionDate(0);
+            } else {
+                tmp.setConclusionDate(System.currentTimeMillis());
+            }
+            requestRepository.save(tmp);
+            return true;
+        }
+
+        return false;
     }
 
     // Cria nova solicitação no banco de dados
@@ -232,13 +241,7 @@ public class RequestService {
         if (request.isEmpty()) return false;
 
         String requestPath = BASE_DIR + request.get().getRegistration() + '/' + request.get().getId();
-
-        try {
-            FileUtils.deleteDirectory(new File(requestPath));
-            System.out.println("Diretório removido: " + requestPath);
-        } catch (Exception e) {
-            System.out.println("Erro ao deletar diretório: " + e);
-        }
+        removeFolder(requestPath);
 
         requestRepository.delete(request.get());
         return true;
@@ -269,7 +272,7 @@ public class RequestService {
     // Verifica se solicitação pertence ao usuário
     public boolean belongsTo(Long id, String userRegistration) {
         Optional<Request> baseRequest = requestRepository.findById(id);
-        if(baseRequest.isEmpty()) return false;
+        if (baseRequest.isEmpty()) return false;
 
         String requestRegistration = baseRequest.get().getRegistration();
         return requestRegistration.equals(userRegistration);
@@ -278,6 +281,16 @@ public class RequestService {
 // ============================================================= //
 //  Métodos auxiliares
 // ============================================================= //
+
+    // Tenta remover diretório especificado por 'path'
+    private void removeFolder(String path) {
+        try {
+            FileUtils.deleteDirectory(new File(path));
+            logger.info("Diretório removido: {}", path);
+        } catch (Exception e) {
+            logger.info("Erro ao deletar diretório: {}", String.valueOf(e));
+        }
+    }
 
     // Valida o token e obtém os dados do usuário autenticado
     private UserData getAuthenticatedUser(String fullToken) {
@@ -296,8 +309,6 @@ public class RequestService {
             throw new IllegalArgumentException("ID da solicitação inválido.");
         }
     }
-
-
 
     // Verifica se o usuário tem permissão para acessar a solicitação
     private void validateUserAccess(UserData userData, Request request) {
@@ -342,28 +353,22 @@ public class RequestService {
         Set<String> secondFileNames = getFileNamesFromRequest(secondRequest);
 
         // (A - B)
-        List<Copy> toUpload = firstRequest.getCopies().stream()
-                .filter(copy -> !secondFileNames.contains(copy.getFileName()))
-                .toList();
+        List<Copy> toUpload = firstRequest.getCopies().stream().filter(copy -> !secondFileNames.contains(copy.getFileName())).toList();
 
         // (B - A)
-        List<Copy> toDelete = secondRequest.getCopies().stream()
-                .filter(copy -> !firstFileNames.contains(copy.getFileName()))
-                .toList();
+        List<Copy> toDelete = secondRequest.getCopies().stream().filter(copy -> !firstFileNames.contains(copy.getFileName())).toList();
 
-        return Map.of(
-                "toUpload", toUpload,
-                "toDelete", toDelete
-        );
+        return Map.of("toUpload", toUpload, "toDelete", toDelete);
     }
 
     private Set<String> getFileNamesFromRequest(Request request) {
-        return request.getCopies().stream()
-                .map(Copy::getFileName)
-                .collect(Collectors.toSet());
+        return request.getCopies().stream().map(Copy::getFileName).collect(Collectors.toSet());
     }
 
-    private void deleteFiles(List<Copy> copies, String basePath) {
+    // Remove arquivos associados a copias, caso existam em 'basePath'
+    // Retorna número de arquivos que foram removidos com sucesso
+    private int deleteFiles(List<Copy> copies, String basePath) {
+        int deleted = 0;
         if (copies != null && !copies.isEmpty()) {
             for (Copy copy : copies) {
                 String filePath = basePath + "/" + copy.getFileName();
@@ -371,15 +376,56 @@ public class RequestService {
 
                 if (fileToDelete.exists()) {
                     if (fileToDelete.delete()) {
-                        // File deleted successfully
-                        System.out.println("File deleted: " + filePath);
+                        // Arquivo associado deletado com sucesso
+                        logger.info("Arquivo removido: {}", filePath);
+                        deleted++;
+
                     } else {
-                        System.out.println("Failed to delete file: " + filePath); // Or handle the error differently
+                        logger.error("Falha ao remover arquivo: {}", filePath);
                     }
                 } else {
-                    System.out.println("File not found: " + filePath); // Or handle the case where the file doesn't exist
+                    logger.info("Arquivo não encontrado: {}", filePath);
                 }
+
+                // Se cópia ainda existir (solicitação não foi deletada), atualizar status da cópia
+                // Neste caso, como arquivo foi removido, flag 'fileInDisk' será setada para 'false'
+                copyService.updateFileStatus(copy.getId(), false);
             }
         }
+        return deleted;
+    }
+
+    // Escaneia todas as solicitações por fechadas e que já passaram do periodo de obsolência
+    // Solicitações obsoletas devem ter seus arquivos removidos do disco
+    // Esta é uma tarefa cronometrada pela variavel de ambiente CLENUP_RATE_FR
+    // Que dita a cada quantas horas esta função é executada
+    public int removeStaleFiles() {
+        List<Request> requests = requestRepository.findAll();
+        long now = new Date().getTime();
+        AtomicInteger deletedTotal = new AtomicInteger();
+
+        requests.forEach((request) -> {
+            // Se requisição é obsoleta 'stale', significa que ela já passou por esse processo, pular
+            // Se conclusionDate != 0 significa que a solicitação está fechada
+            // Se ela está fechada, verificar se o período de remoção de arquivos já passou
+            // Para então remover os arquivos obsoletos do disco
+            if (!request.isStale() && request.getConclusionDate() != 0 && now >= request.getConclusionDate() + 1000 * CLEANUP_RATE_HOURS) {
+
+                List<Copy> copies = copyService.findAllByRequestId(request.getId(), "");
+                String requestPath = BASE_DIR + request.getRegistration() + '/' + request.getId();
+
+                // Remover/atualizar arquivos e remover pasta da requisição
+                int numDeleted = deleteFiles(copies, requestPath);
+                removeFolder(requestPath);
+
+                // Atualizar status de obsolência da solicitação
+                request.setStale(true);
+                requestRepository.save(request);
+
+                deletedTotal.addAndGet(numDeleted);
+            }
+        });
+
+        return deletedTotal.get();
     }
 }
