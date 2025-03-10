@@ -164,9 +164,13 @@ public class RequestService {
 
         if (request.isEmpty()) throw new NoSuchElementException("Solicitação com ID " + id + " não encontrada");
 
+        // Para qualquer solicitação, não deve ser possivel alterar:
+        // ID, matrícula, nome do criador, data de criação e data de conclusão
         newRequest.setId(request.get().getId());
-        newRequest.setConclusionDate(request.get().getConclusionDate());
+        newRequest.setRegistration(request.get().getRegistration());
+        newRequest.setUsername(request.get().getUsername());
         newRequest.setCreationDate(request.get().getCreationDate());
+        newRequest.setConclusionDate(request.get().getConclusionDate());
 
         return requestRepository.save(newRequest);
     }
@@ -177,11 +181,17 @@ public class RequestService {
 
         // Se não é uma nova solicitação, é edição de uma solicitação existente
         if (!isNewRequest) {
-            Optional<Request> baseRequest = requestRepository.findById(request.getId());
+            Optional<Request> baseRequestOpt = requestRepository.findById(request.getId());
 
-            if (baseRequest.isPresent()) {
+            if (baseRequestOpt.isPresent()) {
+                Request baseRequest = baseRequestOpt.get();
+
+                // Persistir dono da requisição caso admin que esteja editando
+                request.setUsername(baseRequest.getUsername());
+                request.setRegistration(baseRequest.getRegistration());
+
                 // Filtrar copias a adicionar à solicitação, caso hajam, caso contrário retorna []
-                Map<String, List<Copy>> result = filterUploadDeleteFiles(request, baseRequest.get());
+                Map<String, List<Copy>> result = filterUploadDeleteFiles(request, baseRequest);
                 copiesToUpload = result.get("toUpload");
                 copiesToDelete = result.get("toDelete");
             } else return "Solicitação não encontrada";
@@ -256,7 +266,7 @@ public class RequestService {
         Request request = findById(requestID).orElseThrow(() -> new FileNotFoundException("Solicitação com ID: " + requestID + " não existe."));
 
         // 3. Verificar se o usuário tem permissão para acessar o arquivo
-        validateUserAccess(userData, request);
+        String requestOwnerRegistration = validateUserAccess(userData, request);
 
         // 4. Buscar se o arquivo existe dentro da solicitação
         Copy copy = request.getCopies()
@@ -266,7 +276,7 @@ public class RequestService {
                 .orElseThrow(() -> new FileNotFoundException("O arquivo " + fileName + " não existe."));
 
         // 5. Criar resposta com o arquivo
-        return buildFileResponse(userData, requestID, copy);
+        return buildFileResponse(requestID, requestOwnerRegistration, copy);
     }
 
     // Verifica se solicitação pertence ao usuário
@@ -311,19 +321,20 @@ public class RequestService {
     }
 
     // Verifica se o usuário tem permissão para acessar a solicitação
-    private void validateUserAccess(UserData userData, Request request) {
+    private String validateUserAccess(UserData userData, Request request) {
         boolean isAdmin = authService.isAdmin(userData.getMatricula());
-        if (!isAdmin) {
-            String requestOwner = String.valueOf(request.getRegistration());
-            if (!userData.getMatricula().equals(requestOwner)) {
-                throw new UnauthorizedException("Usuário não autorizado.");
-            }
+        String requestOwner = String.valueOf(request.getRegistration());
+
+        if (!isAdmin && !userData.getMatricula().equals(requestOwner)) {
+            throw new UnauthorizedException("Usuário não autorizado.");
         }
+
+        return requestOwner;
     }
 
     // Verifica se o arquivo está disponível e lança exceções apropriadas
     // Constrói a resposta HTTP com o arquivo
-    private ResponseEntity<?> buildFileResponse(UserData userData, Long requestID, Copy copy) throws IOException {
+    private ResponseEntity<?> buildFileResponse(Long requestID, String requestOwnerRegistration, Copy copy) throws IOException {
 
         if (copy.getIsPhysicalFile()) {
             throw new FileNotFoundException("O arquivo é físico e não pode ser encontrado no sistema.");
@@ -333,7 +344,7 @@ public class RequestService {
             throw new FileGoneException("O arquivo " + copy.getFileName() + " não está mais disponível.");
         }
 
-        String fileLocation = BASE_DIR + "/" + userData.getMatricula() + "/" + requestID + "/" + copy.getFileName();
+        String fileLocation = BASE_DIR + requestOwnerRegistration + "/" + requestID + "/" + copy.getFileName();
         File downloadFile = new File(fileLocation);
 
         if (!downloadFile.exists()) {

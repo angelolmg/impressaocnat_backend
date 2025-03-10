@@ -121,6 +121,7 @@ public class RequestController {
         Request editedRequest;
 
         try {
+            copyService.instanceCopiesFromRequest(request);
             editedRequest = requestService.patch(id, request);
         } catch (NoSuchElementException ex) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());
@@ -134,7 +135,7 @@ public class RequestController {
     public ResponseEntity<?> criarSolicitacao(@RequestPart("solicitacao") @Valid Request request, @RequestPart("arquivos") List<MultipartFile> files) {
 
         // 3.4 Instanciar e associar cópias à solicitação
-        copyService.instanceCopies(request);
+        copyService.instanceCopiesFromRequest(request);
 
         // 3.5 Criar nova a solicitação no banco de dados
         Request newRequest = requestService.create(request);
