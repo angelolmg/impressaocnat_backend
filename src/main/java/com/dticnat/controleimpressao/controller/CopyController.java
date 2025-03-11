@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/copias")
+@RequestMapping("/api/copias")
 public class CopyController {
 
     @Autowired

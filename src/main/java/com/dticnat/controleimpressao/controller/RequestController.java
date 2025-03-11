@@ -21,7 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 @RestController
-@RequestMapping("/solicitacoes")
+@RequestMapping("/api/solicitacoes")
 public class RequestController {
 
     @Autowired

@@ -5,7 +5,8 @@ IMAGE_NAME="controleimpressao-backend"
 DOCKER_HUB_REPO="angelolmg/controleimpressao-backend"
 
 # Variável para controlar o push
-PUSH_IMAGE="${1:-false}"  # Pega o primeiro argumento ou define como "false" se não houver argumento
+RUN_CONTAINER="${1:-false}"  # Pega o primeiro argumento ou define como "false" se não houver argumento
+PUSH_IMAGE="${2:-false}"  # Pega o primeiro argumento ou define como "false" se não houver argumento
 
 # Para o container (se estiver em execução)
 docker stop "$IMAGE_NAME" 2>/dev/null  # Ignora erros se o container não existir
@@ -20,7 +21,10 @@ docker build -t "$IMAGE_NAME" .
 docker tag "$IMAGE_NAME" "$DOCKER_HUB_REPO:latest"
 
 # Execução do container
-docker run --name "$IMAGE_NAME" -p 8080:8080 --env-file prod.env -d -v archives-volume:/app/archives/ "$DOCKER_HUB_REPO:latest"
+if ["$RUN_CONTAINER" == "true"]; then
+  docker run --name "$IMAGE_NAME" -p 8080:8080 --env-file prod.env -d -v archives-volume:/app/archives/ "$DOCKER_HUB_REPO:latest"
+  echo "Container '$IMAGE_NAME' em execução."
+fi
 
 # Push da imagem (condicional)
 if [ "$PUSH_IMAGE" == "true" ]; then
@@ -29,8 +33,6 @@ if [ "$PUSH_IMAGE" == "true" ]; then
 else
   echo "Imagem NÃO carregada para o Docker Hub (use './build_and_run.sh true')."
 fi
-
-echo "Container '$IMAGE_NAME' em execução."
 
 # Aguarda pressionar uma tecla para fechar o shell
 read -n 1 -s -p "Pressione qualquer tecla para sair..."
