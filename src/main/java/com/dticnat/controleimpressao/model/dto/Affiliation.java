@@ -5,11 +5,11 @@ import lombok.Getter;
 import java.util.List;
 
 /**
- * DTO for vinculo details.
+ * DTO for affiliation details.
  */
 
 @Getter
-public class Vinculo {
+public class Affiliation {
     private String matricula;
     private String nome;
     private String setor_suap;

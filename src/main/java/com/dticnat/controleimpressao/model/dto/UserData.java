@@ -22,6 +22,6 @@ public class UserData {
     private String url_foto_75x100;
     private String url_foto_150x200;
     private String tipo_vinculo;
-    private Vinculo vinculo;
+    private Affiliation vinculo;
 }
 
