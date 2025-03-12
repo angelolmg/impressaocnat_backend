@@ -19,7 +19,7 @@ public class UserData {
     private String naturalidade;
     private String tipo_sanguineo;
     private String email;
-    private String url_oto_75x100;
+    private String url_foto_75x100;
     private String url_foto_150x200;
     private String tipo_vinculo;
     private Vinculo vinculo;
