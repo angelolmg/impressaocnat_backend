@@ -1,11 +1,12 @@
 package com.dticnat.controleimpressao.service;
 
 import com.dticnat.controleimpressao.exception.FileGoneException;
-import com.dticnat.controleimpressao.exception.UnauthorizedException;
+import com.dticnat.controleimpressao.exception.PhysicalFileException;
 import com.dticnat.controleimpressao.model.Copy;
 import com.dticnat.controleimpressao.model.Request;
 import com.dticnat.controleimpressao.model.dto.UserData;
 import com.dticnat.controleimpressao.repository.RequestRepository;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.criteria.*;
 import org.apache.tomcat.util.http.fileupload.FileUtils;
 import org.slf4j.Logger;
@@ -122,7 +123,7 @@ public class RequestService {
     }
 
     // Atualiza o status da solicitação para concluída
-    public boolean toogleConclusionDatebyId(Long id) {
+    public boolean toggleConclusionDatebyId(Long id) {
         Optional<Request> request = findById(id);
 
         if (request.isEmpty()) return false;
@@ -194,7 +195,7 @@ public class RequestService {
                 Map<String, List<Copy>> result = filterUploadDeleteFiles(request, baseRequest);
                 copiesToUpload = result.get("toUpload");
                 copiesToDelete = result.get("toDelete");
-            } else return "Solicitação não encontrada";
+            } else return "Solicitação com ID " + request.getId() + " não encontrada.";
         }
 
         // Checar se o número de arquivos anexados é igual ao número de objetos de cópia
@@ -257,23 +258,21 @@ public class RequestService {
         return true;
     }
 
-    public ResponseEntity<?> getFileResponse(String fullToken, Long requestID, String fileName) throws IOException {
+    public ResponseEntity<?> getFileResponse(UserData userData, boolean isAdmin, Long requestID, String fileName) throws IOException, EntityNotFoundException {
 
-        // 1. Validar token e obter usuário
-        UserData userData = getAuthenticatedUser(fullToken);
+        // Buscar a solicitação no banco
+        Request request = findById(requestID).orElseThrow(EntityNotFoundException::new);
 
-        // 2. Buscar a solicitação no banco
-        Request request = findById(requestID).orElseThrow(() -> new FileNotFoundException("Solicitação com ID: " + requestID + " não existe."));
+        // Verificar se o usuário tem permissão para acessar o arquivo
+        // Lança UnauthorizedException caso usuário não tenha permissão necessária
+        String requestOwnerRegistration = authService.validateUserAccessAndGetOwnerRegistration(userData, request);
 
-        // 3. Verificar se o usuário tem permissão para acessar o arquivo
-        String requestOwnerRegistration = validateUserAccess(userData, request);
-
-        // 4. Buscar se o arquivo existe dentro da solicitação
+        // Buscar se o arquivo existe dentro da solicitação
         Copy copy = request.getCopies()
                 .stream()
                 .filter(c -> Objects.equals(c.getFileName(), fileName))
                 .findFirst()
-                .orElseThrow(() -> new FileNotFoundException("O arquivo " + fileName + " não existe."));
+                .orElseThrow(FileNotFoundException::new);
 
         // 5. Criar resposta com o arquivo
         return buildFileResponse(requestID, requestOwnerRegistration, copy);
@@ -301,48 +300,24 @@ public class RequestService {
             logger.info("Erro ao deletar diretório: {}", String.valueOf(e));
         }
     }
-
-    // Valida o token e obtém os dados do usuário autenticado
-    private UserData getAuthenticatedUser(String fullToken) {
-        UserData userData = authService.getUserData(fullToken);
-        if (userData == null) {
-            throw new UnauthorizedException("Usuário não encontrado.");
-        }
-        return userData;
-    }
-
-    // Converte e valida o ID da solicitação
-    private long parseRequestID(String requestID) {
-        try {
-            return Long.parseLong(requestID);
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("ID da solicitação inválido.");
-        }
-    }
-
-    // Verifica se o usuário tem permissão para acessar a solicitação
-    private String validateUserAccess(UserData userData, Request request) {
-        boolean isAdmin = authService.isAdmin(userData.getMatricula());
-        String requestOwner = String.valueOf(request.getRegistration());
-
-        if (!isAdmin && !userData.getMatricula().equals(requestOwner)) {
-            throw new UnauthorizedException("Usuário não autorizado.");
-        }
-
-        return requestOwner;
-    }
-
+    
     // Verifica se o arquivo está disponível e lança exceções apropriadas
     // Constrói a resposta HTTP com o arquivo
     private ResponseEntity<?> buildFileResponse(Long requestID, String requestOwnerRegistration, Copy copy) throws IOException {
 
-        if (copy.getIsPhysicalFile()) {
-            throw new FileNotFoundException("O arquivo é físico e não pode ser encontrado no sistema.");
-        }
+        File downloadFile = getFile(requestID, requestOwnerRegistration, copy);
 
-        if (!copy.getFileInDisk()) {
-            throw new FileGoneException("O arquivo " + copy.getFileName() + " não está mais disponível.");
-        }
+        ByteArrayInputStream in = new ByteArrayInputStream(Files.readAllBytes(downloadFile.toPath()));
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("Content-Disposition", "attachment; filename=" + copy.getFileName());
+        headers.add("Content-Type", copy.getFileType());
+
+        return ResponseEntity.ok().headers(headers).body(new InputStreamResource(in));
+    }
+
+    private File getFile(Long requestID, String requestOwnerRegistration, Copy copy) throws PhysicalFileException, FileGoneException, FileNotFoundException {
+        if (copy.getIsPhysicalFile()) throw new PhysicalFileException();
+        if (!copy.getFileInDisk()) throw new FileGoneException();
 
         String fileLocation = BASE_DIR + requestOwnerRegistration + "/" + requestID + "/" + copy.getFileName();
         File downloadFile = new File(fileLocation);
@@ -351,12 +326,7 @@ public class RequestService {
             throw new FileNotFoundException("O arquivo " + copy.getFileName() + " não foi encontrado no sistema.");
         }
 
-        ByteArrayInputStream in = new ByteArrayInputStream(Files.readAllBytes(downloadFile.toPath()));
-        HttpHeaders headers = new HttpHeaders();
-        headers.add("Content-Disposition", "attachment; filename=" + copy.getFileName());
-        headers.add("Content-Type", copy.getFileType());
-
-        return ResponseEntity.ok().headers(headers).body(new InputStreamResource(in));
+        return downloadFile;
     }
 
     private Map<String, List<Copy>> filterUploadDeleteFiles(Request firstRequest, Request secondRequest) {

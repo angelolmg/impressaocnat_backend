@@ -1,5 +1,7 @@
 package com.dticnat.controleimpressao.service;
 
+import com.dticnat.controleimpressao.exception.UnauthorizedException;
+import com.dticnat.controleimpressao.model.Request;
 import com.dticnat.controleimpressao.model.dto.UserData;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -33,6 +35,18 @@ public class AuthService {
     public boolean isAdmin(String registration) {
         if(registration == null) return false;
         return Arrays.asList(adminRegistrations).contains(registration);
+    }
+
+    // Verifica se o usuário tem permissão para acessar a solicitação
+    public String validateUserAccessAndGetOwnerRegistration(UserData userData, Request request) throws UnauthorizedException {
+        boolean isAdmin = isAdmin(userData.getMatricula());
+        String requestOwner = String.valueOf(request.getRegistration());
+
+        if (!isAdmin && !userData.getMatricula().equals(requestOwner)) {
+            throw new UnauthorizedException();
+        }
+
+        return requestOwner;
     }
 
 }
