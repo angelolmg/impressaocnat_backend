@@ -1,13 +1,16 @@
 package com.dticnat.controleimpressao.service;
 
 import com.dticnat.controleimpressao.exception.FileGoneException;
+import com.dticnat.controleimpressao.exception.ForbiddenException;
 import com.dticnat.controleimpressao.exception.PhysicalFileException;
+import com.dticnat.controleimpressao.exception.UnauthorizedException;
 import com.dticnat.controleimpressao.model.Copy;
 import com.dticnat.controleimpressao.model.Request;
 import com.dticnat.controleimpressao.model.dto.UserData;
 import com.dticnat.controleimpressao.repository.RequestRepository;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.criteria.*;
+import org.apache.coyote.BadRequestException;
 import org.apache.tomcat.util.http.fileupload.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +26,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.*;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -123,25 +127,26 @@ public class RequestService {
     }
 
     // Atualiza o status da solicitação para concluída
-    public boolean toggleConclusionDatebyId(Long id) {
-        Optional<Request> request = findById(id);
+    public void toggleConclusionDatebyId(Long id) throws EntityNotFoundException, ForbiddenException {
 
-        if (request.isEmpty()) return false;
+        // Verifica se solicitação existe
+        Optional<Request> requestOpt = findById(id);
+        if (requestOpt.isEmpty()) throw new EntityNotFoundException();
 
-        Request tmp = request.get();
+        Request request = requestOpt.get();
 
         // Não atualize o status de solicitações obsoletas/arquivadas
-        if (!tmp.isStale()) {
-            if (tmp.getConclusionDate() > 0) {
-                tmp.setConclusionDate(0);
-            } else {
-                tmp.setConclusionDate(System.currentTimeMillis());
-            }
-            requestRepository.save(tmp);
-            return true;
-        }
+        if (request.isStale()) throw new ForbiddenException();
 
-        return false;
+        // data de conclusao > 0 -> 0
+        // data de conclusao <= 0 -> Data atual
+        request.setConclusionDate(
+                request.getConclusionDate() > 0 ?
+                        0 :
+                        System.currentTimeMillis()
+        );
+
+        requestRepository.save(request);
     }
 
     // Cria nova solicitação no banco de dados
@@ -160,10 +165,10 @@ public class RequestService {
         return requestRepository.save(request);
     }
 
-    public Request patch(Long id, Request newRequest) {
+    public Request patch(Long id, Request newRequest) throws EntityNotFoundException {
         Optional<Request> request = findById(id);
 
-        if (request.isEmpty()) throw new NoSuchElementException("Solicitação com ID " + id + " não encontrada");
+        if (request.isEmpty()) throw new EntityNotFoundException();
 
         // Para qualquer solicitação, não deve ser possivel alterar:
         // ID, matrícula, nome do criador, data de criação e data de conclusão
@@ -176,7 +181,10 @@ public class RequestService {
         return requestRepository.save(newRequest);
     }
 
-    public String saveFiles(Request request, List<MultipartFile> files, Boolean isNewRequest) {
+    public void saveFiles(Request request, List<MultipartFile> files, Boolean isNewRequest) throws
+            IOException,
+            BadRequestException,
+            EntityNotFoundException {
         List<Copy> copiesToUpload = request.getCopies();
         List<Copy> copiesToDelete = null;
 
@@ -195,19 +203,19 @@ public class RequestService {
                 Map<String, List<Copy>> result = filterUploadDeleteFiles(request, baseRequest);
                 copiesToUpload = result.get("toUpload");
                 copiesToDelete = result.get("toDelete");
-            } else return "Solicitação com ID " + request.getId() + " não encontrada.";
+            } else throw new EntityNotFoundException();
         }
 
         // Checar se o número de arquivos anexados é igual ao número de objetos de cópia
         // Aqui significa que não foram enviados arquivos anexos suficientes
         if (files.size() < copiesToUpload.size())
-            return "O número de arquivos enviados não corresponde ao número de cópias";
+            throw new BadRequestException("O número de arquivos enviados (" + files.size() + ") não corresponde ao número de cópias para carregar (" + copiesToUpload.size() + ").");
 
-        // Aqui significa que arquivo(s) anexado(s) de mesmo nome já existe(m) na solicitação, não sobreescrever
-        if (files.size() > copiesToUpload.size()) return "";
+        // Aqui significa que arquivo(s) anexado(s) de mesmo nome já existe(m) na solicitação
+        // Retorne sem sobreescrever
+        if (files.size() > copiesToUpload.size()) return;
 
         String requestPath = BASE_DIR + request.getRegistration() + '/' + request.getId();
-        String msg = "";
 
         try {
             // Cria o diretório do usuário, se necessário
@@ -225,40 +233,35 @@ public class RequestService {
                 if (file.getSize() > 0) file.transferTo(new File(filePath));
             }
 
-        } catch (SecurityException e) {
-            msg = "Erro de segurança: " + e.getMessage();
-        } catch (IOException e) {
-            msg = "Erro IO: " + e.getMessage();
-        } catch (IllegalStateException e) {
-            msg = "Erro de estado ilegal: " + e.getMessage();
         } catch (Exception e) {
-            msg = "Erro inesperado: " + e.getMessage();
-        } finally {
             // Se salvar um arquivo da solicitação dá erro, aborte operação e delete os salvos anteriormente 'copiesToUpload'
-            if (!msg.isEmpty()) {
-                System.err.println(msg);
-                deleteFiles(copiesToUpload, requestPath);
-            }
-
+            deleteFiles(copiesToUpload, requestPath);
+            throw e;
+        } finally {
             // Após salvar arquivo(s), caso seja operação de edição (patch), remover arquivos obsoletos 'copiesToDelete'
             if (!isNewRequest) deleteFiles(copiesToDelete, requestPath);
         }
-
-        return msg;
     }
 
-    public boolean removeRequest(Long id) {
-        Optional<Request> request = findById(id);
-        if (request.isEmpty()) return false;
+    public void removeRequest(Long id) throws EntityNotFoundException {
+        Optional<Request> requestOpt = findById(id);
+        if (requestOpt.isEmpty()) throw new EntityNotFoundException();
 
-        String requestPath = BASE_DIR + request.get().getRegistration() + '/' + request.get().getId();
+        Request request = requestOpt.get();
+        String requestPath = BASE_DIR + request.getRegistration() + '/' + request.getId();
+
         removeFolder(requestPath);
-
-        requestRepository.delete(request.get());
-        return true;
+        requestRepository.delete(request);
     }
 
-    public ResponseEntity<?> getFileResponse(UserData userData, boolean isAdmin, Long requestID, String fileName) throws IOException, EntityNotFoundException {
+    public ResponseEntity<?> getFileResponse(UserData userData, Long requestID, String fileName) throws
+            PhysicalFileException,
+            FileGoneException,
+            IOException,
+            EntityNotFoundException,
+            FileNotFoundException,
+            UnauthorizedException,
+            NoSuchFileException {
 
         // Buscar a solicitação no banco
         Request request = findById(requestID).orElseThrow(EntityNotFoundException::new);
@@ -278,13 +281,34 @@ public class RequestService {
         return buildFileResponse(requestID, requestOwnerRegistration, copy);
     }
 
-    // Verifica se solicitação pertence ao usuário
-    public boolean belongsTo(Long id, String userRegistration) {
-        Optional<Request> baseRequest = requestRepository.findById(id);
-        if (baseRequest.isEmpty()) return false;
+    /**
+     * Verifica se usuário pode interagir com a solicitação
+     * Retorna a solicitação caso ela exista e pertença ao usuário (ou se o usuário for admin)
+     * Do contrário retorna erro
+     *
+     * @param requestId     ID da solicitação.
+     * @param userData      Dados do usuário.
+     * @return A solicitação em questão.
+     * @throws EntityNotFoundException  Caso a solicitação com 'requestId' não seja encontrada
+     * @throws UnauthorizedException    Caso o usuário não tenha permissão de iteragir com a solicitação
+     * @throws ForbiddenException       Caso o usuário tente modificar uma solicitação arquivada
+    **/
+    public Request canInteract(Long requestId, UserData userData, boolean patchOrDelete) throws
+            EntityNotFoundException,
+            UnauthorizedException,
+            ForbiddenException {
+        Optional<Request> requestOpt = requestRepository.findById(requestId);
+        if (requestOpt.isEmpty()) throw new EntityNotFoundException();
 
-        String requestRegistration = baseRequest.get().getRegistration();
-        return requestRegistration.equals(userRegistration);
+        Request request = requestOpt.get();
+
+        // Proíba iterações do tipo modificação (PATCH/DELETE) se solicitação estiver arquivada
+        if (patchOrDelete && request.isStale()) throw new ForbiddenException();
+
+        // Proíba iterações se a solicitação não pertencer ao usuário e o mesmo não for admin
+        if (!userData.isAdmin() && !request.getRegistration().equals(userData.getMatricula())) throw new UnauthorizedException();
+
+        return request;
     }
 
 // ============================================================= //
@@ -296,14 +320,21 @@ public class RequestService {
         try {
             FileUtils.deleteDirectory(new File(path));
             logger.info("Diretório removido: {}", path);
-        } catch (Exception e) {
+        } catch (IOException e) {
             logger.info("Erro ao deletar diretório: {}", String.valueOf(e));
         }
     }
-    
+
     // Verifica se o arquivo está disponível e lança exceções apropriadas
     // Constrói a resposta HTTP com o arquivo
-    private ResponseEntity<?> buildFileResponse(Long requestID, String requestOwnerRegistration, Copy copy) throws IOException {
+    private ResponseEntity<?> buildFileResponse(Long requestID, String requestOwnerRegistration, Copy copy) throws
+            PhysicalFileException,
+            FileGoneException,
+            NoSuchFileException,
+            IOException {
+
+        if (copy.getIsPhysicalFile()) throw new PhysicalFileException();
+        if (!copy.getFileInDisk()) throw new FileGoneException();
 
         File downloadFile = getFile(requestID, requestOwnerRegistration, copy);
 
@@ -315,17 +346,11 @@ public class RequestService {
         return ResponseEntity.ok().headers(headers).body(new InputStreamResource(in));
     }
 
-    private File getFile(Long requestID, String requestOwnerRegistration, Copy copy) throws PhysicalFileException, FileGoneException, FileNotFoundException {
-        if (copy.getIsPhysicalFile()) throw new PhysicalFileException();
-        if (!copy.getFileInDisk()) throw new FileGoneException();
-
+    private File getFile(Long requestID, String requestOwnerRegistration, Copy copy) throws NoSuchFileException {
         String fileLocation = BASE_DIR + requestOwnerRegistration + "/" + requestID + "/" + copy.getFileName();
         File downloadFile = new File(fileLocation);
 
-        if (!downloadFile.exists()) {
-            throw new FileNotFoundException("O arquivo " + copy.getFileName() + " não foi encontrado no sistema.");
-        }
-
+        if (!downloadFile.exists()) throw new NoSuchFileException(null);
         return downloadFile;
     }
 

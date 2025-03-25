@@ -23,5 +23,12 @@ public class UserData {
     private String url_foto_150x200;
     private String tipo_vinculo;
     private Affiliation vinculo;
+
+    /** Flag customizada, inicializada no AuthInterceptor. Indica se o usuario é ou não admin. */
+    private boolean isAdmin;
+
+    public void setAdmin(boolean admin) {
+        isAdmin = admin;
+    }
 }
 

@@ -35,8 +35,8 @@ public class AuthInterceptor implements HandlerInterceptor {
             throw new AuthorizationException("Usuário não encontrado.", HttpStatus.NOT_FOUND);
         }
 
+        userData.setAdmin(authService.isAdmin(userData.getMatricula()));
         request.setAttribute("userData", userData);
-        request.setAttribute("isAdmin", authService.isAdmin(userData.getMatricula()));
 
         return true;
     }
