@@ -421,11 +421,6 @@ public class RequestService {
         return request;
     }
 
-    // Escaneia todas as solicitações por fechadas e que já passaram do periodo de obsolência
-    // Solicitações obsoletas devem ter seus arquivos removidos do disco
-    // Esta é uma tarefa cronometrada pela variavel de ambiente CLENUP_RATE_FR
-    // Que dita a cada quantas horas esta função é executada
-
     /**
      * Escaneia todas as solicitações fechadas que já passaram do período de obsolescência.
      * Este é um metodo agendado em ScheduledTasks, cronometrada pela variavel de ambiente CLENUP_RATE_FR.

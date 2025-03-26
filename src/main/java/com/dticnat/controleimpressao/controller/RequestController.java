@@ -284,7 +284,7 @@ public class RequestController {
     })
     @PostMapping(consumes = {"multipart/form-data"})
     public ResponseEntity<?> createRequest(HttpServletRequest httpRequest,
-                                           @Parameter(description = "Dados da solicitação a ser criada") @RequestPart("solicitacao") @Valid Request request,
+                                           @Parameter(description = "Dados da solicitação a ser criada") @RequestPart("solicitacao") @Valid com.dticnat.controleimpressao.model.Request request,
                                            @Parameter(description = "Lista de arquivos associados a solicitação") @RequestPart("arquivos") List<MultipartFile> files) {
 
         // Recuperar dados do usuário autenticado do request http
