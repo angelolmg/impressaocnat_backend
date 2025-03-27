@@ -22,7 +22,8 @@ public class AuthInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws ResponseStatusException {
-        if(Objects.equals(request.getMethod(), "OPTIONS")) return true; // Necessário para buscar uma solicilitação por ID
+        // Necessário para buscar uma solicilitação por ID
+        if(Objects.equals(request.getMethod(), "OPTIONS")) return true;
 
         String token = request.getHeader("Authorization");
 

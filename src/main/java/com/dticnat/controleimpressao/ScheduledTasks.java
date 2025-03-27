@@ -16,14 +16,20 @@ public class ScheduledTasks {
     @Autowired
     private RequestService requestService;
 
-    // Tarefa cronometrada de deleção de arquivos
-    // Somente arquivos associados a solicitações obsoletas serão deletados
-    // E.g. solicitação fechada a mais de 3 dias
+    /**
+     * Tarefa agendada para remover arquivos associados a solicitações obsoletas.
+     *
+     * Este método é executado periodicamente, conforme configurado pelas propriedades
+     * `arquivos.cleanup-rate-hours` (frequência) e `arquivos.cleanup-rate-hours` (delay inicial).
+     * Somente arquivos associados a solicitações obsoletas serão deletados
+     * E.g. solicitação fechada a mais de 3 dias
+     */
     @Scheduled(fixedRateString = "${arquivos.cleanup-rate-hours}",
-                initialDelayString = "${arquivos.cleanup-rate-hours}",
-                timeUnit = TimeUnit.HOURS)
+            initialDelayString = "${arquivos.cleanup-rate-hours}",
+            timeUnit = TimeUnit.HOURS)
     public void cleanupFiles() {
-        logger.info("Limpando arquivos obsoletos...");
-        logger.info("[{}] arquivos obsoletos removidos", requestService.removeStaleFiles());
+        logger.info("Iniciando a limpeza de arquivos obsoletos...");
+        int deletedFiles = requestService.removeStaleFiles();
+        logger.info("Limpeza de arquivos obsoletos concluída. [{}] arquivos removidos.", deletedFiles);
     }
 }
