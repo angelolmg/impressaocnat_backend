@@ -1,5 +1,6 @@
 package com.dticnat.controleimpressao.model.dto;
 
+import lombok.Builder;
 import lombok.Data;
 
 /**
@@ -11,6 +12,7 @@ import lombok.Data;
  * @param <T> O tipo dos dados contidos no payload.
  */
 @Data
+@Builder
 public class Payload<T> {
     /**
      * Código de status HTTP da resposta.
@@ -24,12 +26,12 @@ public class Payload<T> {
      * ou os dados que foram enviados para o servidor. O tipo é genérico (`T`) para
      * permitir o uso com diferentes tipos de dados.
      */
-    private T dados;
+    private T data;
 
     /**
      * Mensagem descritiva sobre o resultado da requisição.
      * Esta mensagem pode fornecer informações adicionais sobre o sucesso ou a falha
      * da operação, bem como detalhes relevantes para o consumidor da API.
      */
-    private String mensagem;
+    private String message;
 }

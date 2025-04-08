@@ -13,9 +13,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(AuthorizationException.class)
     public ResponseEntity<Payload<Object>> handleException(AuthorizationException ex) {
-        Payload<Object> payload = new Payload<>();
-        payload.setStatus(ex.getStatus().value());
-        payload.setMensagem(ex.getMessage());
+        Payload<Object> payload = Payload
+                .builder()
+                .status(ex.getStatus().value())
+                .message(ex.getMessage())
+                .build();
         return ResponseEntity.status(payload.getStatus()).body(payload);
     }
 }

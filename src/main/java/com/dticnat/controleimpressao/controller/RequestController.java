@@ -5,6 +5,8 @@ import com.dticnat.controleimpressao.exception.ForbiddenException;
 import com.dticnat.controleimpressao.exception.PhysicalFileException;
 import com.dticnat.controleimpressao.exception.UnauthorizedException;
 import com.dticnat.controleimpressao.model.Request;
+import com.dticnat.controleimpressao.model.dto.Payload;
+import com.dticnat.controleimpressao.model.dto.RequestDTO;
 import com.dticnat.controleimpressao.model.dto.UserData;
 import com.dticnat.controleimpressao.service.AuthService;
 import com.dticnat.controleimpressao.service.CopyService;
@@ -234,8 +236,8 @@ public class RequestController {
             // 'isNewRequest == false' indica que é edição de uma solicitação já existente
             requestService.saveFiles(request, files, false);
 
-            // Intancia cópias associadas no database antes de editar solicitação
-            copyService.instanceCopiesFromRequest(request);
+            // Intancia cópias associadas na database antes de editar solicitação
+            // copyService.instanceCopiesFromRequest(request);
             Request editedRequest = requestService.patch(requestId, request);
 
             // Retorna solicitação editada
@@ -267,7 +269,7 @@ public class RequestController {
     /**
      * Cria uma nova solicitação com os dados fornecidos e os arquivos anexados.
      *
-     * @param request Objeto Request contendo os dados da nova solicitação.
+     * @param requestDTO Objeto RequestDTO contendo os dados da nova solicitação.
      * @param files   Lista de arquivos a serem anexados à solicitação.
      * @return Nova solicitação criada ou mensagem de erro.
      */
@@ -284,17 +286,14 @@ public class RequestController {
     })
     @PostMapping(consumes = {"multipart/form-data"})
     public ResponseEntity<?> createRequest(HttpServletRequest httpRequest,
-                                           @Parameter(description = "Dados da solicitação a ser criada") @RequestPart("solicitacao") @Valid com.dticnat.controleimpressao.model.Request request,
-                                           @Parameter(description = "Lista de arquivos associados a solicitação") @RequestPart("arquivos") List<MultipartFile> files) {
+                                           @Parameter(description = "Dados da solicitação a ser criada") @Valid @RequestPart("solicitacao") RequestDTO requestDTO,
+                                           @Parameter(description = "Lista de arquivos associados a solicitação") @RequestPart(value = "arquivos", required = false) List<MultipartFile> files) {
 
         // Recuperar dados do usuário autenticado do request http
         UserData userData = (UserData) httpRequest.getAttribute("userData");
 
-        // Instanciar e associar cópias à solicitação
-        copyService.instanceCopiesFromRequest(request);
-
         // Criar nova a solicitação no banco de dados
-        Request newRequest = requestService.create(request);
+        Request newRequest = requestService.create(requestDTO, userData);
 
         // Salvar os arquivos em disco
         // Se um arquivo da solicitação dá erro, os demais salvos anteriormente devem ser excluídos
@@ -315,12 +314,12 @@ public class RequestController {
     }
 
     /**
-     * Atualiza o status de conclusão de uma solicitação para concluída ou não concluída.
+     * Altera o status de conclusão de uma solicitação para concluída ou não concluída.
      *
      * @param requestId ID da solicitação a ter o status atualizado.
      * @return Mensagem de sucesso ou erro.
      */
-    @Operation(summary = "Atualiza o status de conclusão de uma solicitação")
+    @Operation(summary = "Altera o status de conclusão de uma solicitação")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Status da solicitação atualizado com sucesso.",
                     content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Status da solicitação atualizado com sucesso"))),
@@ -345,7 +344,12 @@ public class RequestController {
 
             // Alterna status da solicitação
             requestService.toggleConclusionDatebyId(requestId);
-            return ResponseEntity.ok("Status da solicitação atualizado com sucesso");
+            Payload<?> response = Payload
+                    .builder()
+                    .status(HttpStatus.OK.value())
+                    .message("Status da solicitação atualizado com sucesso.")
+                    .build();
+            return ResponseEntity.status(response.getStatus()).body(response);
 
         } catch (EntityNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -392,7 +396,13 @@ public class RequestController {
 
             // Remove solicitação
             requestService.removeRequest(requestId);
-            return ResponseEntity.ok("Solicitação (ID " + String.format("%06d", requestId) + ") removida com sucesso.");
+
+            Payload<?> response = Payload
+                    .builder()
+                    .status(HttpStatus.OK.value())
+                    .message("Solicitação (ID " + String.format("%06d", requestId) + ") removida com sucesso.")
+                    .build();
+            return ResponseEntity.status(response.getStatus()).body(response);
 
         } catch (EntityNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)

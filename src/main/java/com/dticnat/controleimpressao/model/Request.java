@@ -64,6 +64,7 @@ public class Request {
     /**
      * Número total de páginas a serem impressas na solicitação, calculado com base nas cópias.
      */
+    @Positive(message = "O número total de páginas deve ser positivo.")
     private int totalPageCount;
 
     /**

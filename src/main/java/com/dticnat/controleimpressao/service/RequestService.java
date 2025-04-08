@@ -6,6 +6,7 @@ import com.dticnat.controleimpressao.exception.PhysicalFileException;
 import com.dticnat.controleimpressao.exception.UnauthorizedException;
 import com.dticnat.controleimpressao.model.Copy;
 import com.dticnat.controleimpressao.model.Request;
+import com.dticnat.controleimpressao.model.dto.RequestDTO;
 import com.dticnat.controleimpressao.model.dto.UserData;
 import com.dticnat.controleimpressao.repository.RequestRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -198,22 +199,27 @@ public class RequestService {
      * Este metodo recebe um objeto Request, configura a data de criação e a data de conclusão inicial,
      * e persiste a solicitação na base de dados.
      *
-     * @param request O objeto Request contendo os dados da solicitação a ser criada.
+     * @param requestDTO O objeto Request contendo os dados da solicitação a ser criada.
      * @return O objeto Request persistido na base de dados, incluindo o ID gerado.
      */
-    public Request create(Request request) {
-
-        // Configurar data de criação da solicitação em unix time
-        request.setCreationDate(System.currentTimeMillis());
-
-        // Data de conclusão na criação é 0 (pendente)
-        request.setConclusionDate(0);
+    public Request create(RequestDTO requestDTO, UserData user) {
 
         // TODO: Verificar número de páginas total para cópias
-        // ...
+        Request newRequest = Request
+                .builder()
+                .username(user.getNome_usual())
+                .registration(user.getMatricula())
+                .term(requestDTO.getTerm())
+                .totalPageCount(requestDTO.getTotalPageCount())
+                .creationDate(System.currentTimeMillis())
+                .conclusionDate(0)
+                .build();
+
+        List<Copy> copies = copyService.instanceCopiesFromRequest(newRequest, requestDTO.getCopies());
+        newRequest.setCopies(copies);
 
         // Persistir a solicitação no banco de dados
-        return requestRepository.save(request);
+        return requestRepository.save(newRequest);
     }
 
     /**
@@ -306,7 +312,13 @@ public class RequestService {
                 String filePath = requestPath + "/" + copy.getFileName();
 
                 // Salva o arquivo no disco, caso o arquivo não seja nulo
-                if (file.getSize() > 0) file.transferTo(new File(filePath));
+                boolean fileExists = file.getSize() > 0;
+                if (fileExists) file.transferTo(new File(filePath));
+
+                // Atualize o status de exsitência do arquivo
+                copy.setFileInDisk(fileExists);
+                copy.setIsPhysicalFile(!copy.getFileInDisk());
+                copyService.save(copy);
             }
 
         } catch (Exception e) {
@@ -423,7 +435,7 @@ public class RequestService {
 
     /**
      * Escaneia todas as solicitações fechadas que já passaram do período de obsolescência.
-     * Este é um metodo agendado em ScheduledTasks, cronometrada pela variavel de ambiente CLENUP_RATE_FR.
+     * Este é um metodo agendado em ScheduledTasks, cronometrada pela variavel de ambiente CLEANUP_RATE_FR.
      * Ele itera por todas as solicitações, verifica se estão fechadas e se o tempo decorrido desde a
      * conclusão ultrapassou o período de obsolescência. Para as solicitações obsoletas identificadas,
      * os arquivos associados são removidos do disco, a pasta da solicitação é excluída e o
@@ -486,7 +498,7 @@ public class RequestService {
 
     /**
      * Verifica a disponibilidade do arquivo e constrói a resposta HTTP para download.
-     * Este metodo verifica se o arquivo associado à cópia está disponível para download.
+     * Este método verifica se o arquivo associado à cópia está disponível para download.
      * Se o arquivo for físico ou não estiver no disco, lança a exceção apropriada.
      * Caso contrário, lê o arquivo do sistema de arquivos e constrói um ResponseEntity
      * com o arquivo para download.

@@ -45,7 +45,6 @@ public class CopyController {
      * termo de pesquisa opcional. Apenas administradores ou o usuário que criou a
      * solicitação têm permissão para acessar esta informação.
      *
-     * @param httpRequest Dados da requisição HTTP, contendo informações do usuário autenticado.
      * @param query       Termo de pesquisa para filtrar as cópias por nome de arquivo (opcional).
      * @param requestId   ID da solicitação da qual as cópias serão listadas.
      * @return A lista de cópias da solicitação

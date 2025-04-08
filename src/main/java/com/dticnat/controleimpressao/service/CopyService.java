@@ -2,6 +2,7 @@ package com.dticnat.controleimpressao.service;
 
 import com.dticnat.controleimpressao.model.Copy;
 import com.dticnat.controleimpressao.model.Request;
+import com.dticnat.controleimpressao.model.dto.CopyDTO;
 import com.dticnat.controleimpressao.repository.CopyRepository;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
@@ -12,6 +13,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -43,10 +45,25 @@ public class CopyService {
     /**
      * Cria e salva uma nova cópia de arquivo no banco de dados.
      *
-     * @param copy O objeto {@link Copy} a ser persistido.
-     * @return O objeto {@link Copy} persistido.
+     * @param copyDTO O objeto {@link CopyDTO} a ser persistido.
      */
-    public Copy create(Copy copy) {
+    public Copy create(CopyDTO copyDTO, Long requestId) {
+
+        Copy copy = Copy
+                .builder()
+                .fileName(copyDTO.getFileName())
+                .fileType(copyDTO.getFileType())
+                .pageCount(copyDTO.getPageCount())
+                .printConfig(copyDTO.getPrintConfig())
+                .fileInDisk(!copyDTO.getIsPhysicalFile())
+                .isPhysicalFile(copyDTO.getIsPhysicalFile())
+                .notes(copyDTO.getNotes())
+                .build();
+
+        return copyRepository.save(copy);
+    }
+
+    public Copy save(Copy copy) {
         return copyRepository.save(copy);
     }
 
@@ -107,13 +124,13 @@ public class CopyService {
      *
      * @param request A solicitação da qual as cópias serão instanciadas.
      */
-    public void instanceCopiesFromRequest(Request request) {
-        List<Copy> copies = request.getCopies();
-        copies.forEach((copy) -> {
-            copy.setRequestId(request.getId());
-            copy.setFileInDisk(!copy.getIsPhysicalFile());
-            create(copy);
+    public List<Copy> instanceCopiesFromRequest(Request request, List<CopyDTO> copiesDTO) {
+        List<Copy> copies = new ArrayList<>();
+        copiesDTO.forEach((copyDTO) -> {
+            copies.add(create(copyDTO, request.getId()));
         });
+
+        return copies;
     }
 
     /**
@@ -132,6 +149,6 @@ public class CopyService {
 
         Copy copy = optCopy.get();
         copy.setFileInDisk(status);
-        create(copy);
+        copyRepository.save(copy);
     }
 }
