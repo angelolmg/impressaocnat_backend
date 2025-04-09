@@ -42,13 +42,13 @@
   </tr>
   </thead>
   <tbody>
-  <tr th:each="request : ${requests}">
-    <td th:text="${request.id}"></td>
-    <td th:text="${request.username}"></td>
-    <td th:text="${request.registration}"></td>
-    <td th:text="${#dates.format(request.creationDate, 'dd/MM/yyyy HH:mm:ss')}"></td>
-    <td th:text="${request.term / (60 * 60)}"></td>
-    <td th:text="${request.conclusionDate > 0 ? #dates.format(request.conclusionDate, 'dd/MM/yyyy HH:mm:ss') : '-'}"></td>
+  <tr th:each="solicitation : ${solicitations}">
+    <td th:text="${solicitation.id}"></td>
+    <td th:text="${solicitation.username}"></td>
+    <td th:text="${solicitation.registration}"></td>
+    <td th:text="${#dates.format(solicitation.creationDate, 'dd/MM/yyyy HH:mm:ss')}"></td>
+    <td th:text="${solicitation.term / (60 * 60)}"></td>
+    <td th:text="${solicitation.conclusionDate > 0 ? #dates.format(solicitation.conclusionDate, 'dd/MM/yyyy HH:mm:ss') : '-'}"></td>
     <td>
       <table>
         <thead>
@@ -60,7 +60,7 @@
         </tr>
         </thead>
         <tbody>
-        <tr th:each="copy : ${request.copies}">
+        <tr th:each="copy : ${solicitation.copies}">
           <td th:text="${copy.isPhysicalFile ? copy.fileName + ' (Arquivo Físico)' : copy.fileName}"></td>
           <td th:text="${copy.printConfig.copyCount}"></td>
           <td th:text="${copy.pageCount}"></td>
@@ -69,7 +69,7 @@
         </tbody>
       </table>
     </td>
-    <td th:text="${request.totalPageCount}"></td>
+    <td th:text="${solicitation.totalPageCount}"></td>
   </tr>
   </tbody>
 </table>

@@ -13,7 +13,7 @@ import java.util.List;
  * informações acadêmicas e contato institucional.
  */
 @Getter
-public class Affiliation {
+public class SuapAffiliation {
     /**
      * Matrícula do usuário na instituição.
      * Identificador único do usuário dentro do sistema.

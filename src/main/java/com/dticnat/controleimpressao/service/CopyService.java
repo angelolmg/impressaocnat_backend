@@ -1,7 +1,7 @@
 package com.dticnat.controleimpressao.service;
 
 import com.dticnat.controleimpressao.model.Copy;
-import com.dticnat.controleimpressao.model.Request;
+import com.dticnat.controleimpressao.model.Solicitation;
 import com.dticnat.controleimpressao.model.dto.CopyDTO;
 import com.dticnat.controleimpressao.repository.CopyRepository;
 import jakarta.persistence.criteria.CriteriaBuilder;
@@ -122,12 +122,12 @@ public class CopyService {
      * Este metodo itera sobre a lista de cópias de uma solicitação, define o ID da solicitação
      * e o status inicial do arquivo em disco, e persiste cada cópia no banco de dados.
      *
-     * @param request A solicitação da qual as cópias serão instanciadas.
+     * @param solicitation A solicitação da qual as cópias serão instanciadas.
      */
-    public List<Copy> instanceCopiesFromRequest(Request request, List<CopyDTO> copiesDTO) {
+    public List<Copy> instanceCopiesFromRequest(Solicitation solicitation, List<CopyDTO> copiesDTO) {
         List<Copy> copies = new ArrayList<>();
         copiesDTO.forEach((copyDTO) -> {
-            copies.add(create(copyDTO, request.getId()));
+            copies.add(create(copyDTO, solicitation.getId()));
         });
 
         return copies;

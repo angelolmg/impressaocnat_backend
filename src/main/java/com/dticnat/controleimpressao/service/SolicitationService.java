@@ -5,10 +5,13 @@ import com.dticnat.controleimpressao.exception.ForbiddenException;
 import com.dticnat.controleimpressao.exception.PhysicalFileException;
 import com.dticnat.controleimpressao.exception.UnauthorizedException;
 import com.dticnat.controleimpressao.model.Copy;
-import com.dticnat.controleimpressao.model.Request;
-import com.dticnat.controleimpressao.model.dto.RequestDTO;
-import com.dticnat.controleimpressao.model.dto.UserData;
-import com.dticnat.controleimpressao.repository.RequestRepository;
+import com.dticnat.controleimpressao.model.Event;
+import com.dticnat.controleimpressao.model.Solicitation;
+import com.dticnat.controleimpressao.model.User;
+import com.dticnat.controleimpressao.model.dto.SolicitationDTO;
+import com.dticnat.controleimpressao.model.dto.SuapUserData;
+import com.dticnat.controleimpressao.model.enums.EventType;
+import com.dticnat.controleimpressao.repository.SolicitationRepository;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.criteria.*;
 import org.apache.coyote.BadRequestException;
@@ -28,16 +31,17 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 
 @Service
-public class RequestService {
+public class SolicitationService {
 
     @Autowired
-    private RequestRepository requestRepository;
+    private SolicitationRepository solicitationRepository;
 
     @Autowired
     private CopyService copyService;
@@ -51,7 +55,7 @@ public class RequestService {
     @Value("${arquivos.cleanup-rate-hours}")
     private Long CLEANUP_RATE_HOURS;
 
-    private static final Logger logger = LoggerFactory.getLogger(RequestService.class);
+    private static final Logger logger = LoggerFactory.getLogger(SolicitationService.class);
 
     /**
      * Busca todas as solicitações com opções de filtragem.
@@ -66,9 +70,9 @@ public class RequestService {
      * @param userRegistration Registro do usuário para filtrar solicitações por usuário (opcional).
      * @return Uma lista de solicitações que correspondem aos critérios de filtragem, ordenadas por ID em ordem ascendente.
      */
-    public List<Request> findAll(Long startDate, Long endDate, String query, Boolean is_concluded, String userRegistration) {
-        Specification<Request> spec = filterRequests(startDate, endDate, query, is_concluded, userRegistration);
-        return requestRepository.findAll(spec, Sort.by(Sort.Direction.ASC, "id"));
+    public List<Solicitation> findAll(Long startDate, Long endDate, String query, Boolean is_concluded, String userRegistration) {
+        Specification<Solicitation> spec = filterRequests(startDate, endDate, query, is_concluded, userRegistration);
+        return solicitationRepository.findAll(spec, Sort.by(Sort.Direction.ASC, "id"));
     }
 
     /**
@@ -78,8 +82,8 @@ public class RequestService {
      * @param id O ID da solicitação a ser buscada.
      * @return Um Optional contendo a solicitação, se encontrada, ou um Optional vazio caso contrário.
      */
-    public Optional<Request> findById(Long id) {
-        return requestRepository.findById(id);
+    public Optional<Solicitation> findById(Long id) {
+        return solicitationRepository.findById(id);
     }
 
     /**
@@ -95,8 +99,8 @@ public class RequestService {
      * @param userRegistration Registro do usuário para filtrar solicitações por usuário (opcional).
      * @return Uma Specification JPA que pode ser usada para filtrar solicitações.
      */
-    public Specification<Request> filterRequests(Long startDate, Long endDate, String userQuery, Boolean is_concluded, String userRegistration) {
-        return (Root<Request> root, CriteriaQuery<?> query, CriteriaBuilder cb) -> {
+    public Specification<Solicitation> filterRequests(Long startDate, Long endDate, String userQuery, Boolean is_concluded, String userRegistration) {
+        return (Root<Solicitation> root, CriteriaQuery<?> query, CriteriaBuilder cb) -> {
             Predicate predicate = cb.conjunction();
 
             // TODO: converter para lógica utilizando LocalDateTime
@@ -154,11 +158,11 @@ public class RequestService {
         };
     }
 
-    public boolean belongsToUserCheck(Long requestId, UserData userData) {
-        Optional<Request> request = findById(requestId);
+    public boolean belongsToUserCheck(Long requestId, SuapUserData userData) {
+        Optional<Solicitation> request = findById(requestId);
         if (request.isEmpty()) return false;
 
-        Request tmp = request.get();
+        Solicitation tmp = request.get();
         return tmp.getRegistration().equals(userData.getMatricula());
     }
 
@@ -175,23 +179,23 @@ public class RequestService {
      */
     public void toggleConclusionDatebyId(Long id) throws EntityNotFoundException, ForbiddenException {
         // Verifica se solicitação existe
-        Optional<Request> requestOpt = findById(id);
+        Optional<Solicitation> requestOpt = findById(id);
         if (requestOpt.isEmpty()) throw new EntityNotFoundException();
 
-        Request request = requestOpt.get();
+        Solicitation solicitation = requestOpt.get();
 
         // Não atualize o status de solicitações obsoletas/arquivadas
-        if (request.isStale()) throw new ForbiddenException();
+        if (solicitation.isStale()) throw new ForbiddenException();
 
         // Se a data de conclusão for maior que zero, define como zero (pendente),
         // caso contrário, define como a data atual (concluída).
-        request.setConclusionDate(
-                request.getConclusionDate() > 0 ?
+        solicitation.setConclusionDate(
+                solicitation.getConclusionDate() > 0 ?
                         0 :
                         System.currentTimeMillis()
         );
 
-        requestRepository.save(request);
+        solicitationRepository.save(solicitation);
     }
 
     /**
@@ -199,27 +203,49 @@ public class RequestService {
      * Este metodo recebe um objeto Request, configura a data de criação e a data de conclusão inicial,
      * e persiste a solicitação na base de dados.
      *
-     * @param requestDTO O objeto Request contendo os dados da solicitação a ser criada.
+     * @param solicitationDTO O objeto Request contendo os dados da solicitação a ser criada.
      * @return O objeto Request persistido na base de dados, incluindo o ID gerado.
      */
-    public Request create(RequestDTO requestDTO, UserData user) {
+    public Solicitation create(SolicitationDTO solicitationDTO, SuapUserData user) {
 
-        // TODO: Verificar número de páginas total para cópias
-        Request newRequest = Request
+        // Cria usuario solicitante
+        User creatorUser = User
                 .builder()
-                .username(user.getNome_usual())
-                .registration(user.getMatricula())
-                .term(requestDTO.getTerm())
-                .totalPageCount(requestDTO.getTotalPageCount())
-                .creationDate(System.currentTimeMillis())
-                .conclusionDate(0)
+                .commonName(user.getNome_usual())
+                .registrationNumber(user.getMatricula())
+                .email(user.getEmail())
+                .phoneNumbers(user.getVinculo().getTelefones_institucionais())
+                .sector(user.getVinculo().getSetor_suap())
+                .photoUrl(user.getUrl_foto_150x200())
+                .role(user.getRole())
                 .build();
 
-        List<Copy> copies = copyService.instanceCopiesFromRequest(newRequest, requestDTO.getCopies());
-        newRequest.setCopies(copies);
+        // Cria base da solicitação
+        // TODO: Verificar número de páginas total para cópias
+        Solicitation newSolicitation = Solicitation
+                .builder()
+                .deadline(solicitationDTO.getDeadline())
+                .creationDate(LocalDateTime.now())
+                .creatorUser(creatorUser)
+                .totalPageCount(solicitationDTO.getTotalPageCount())
+                .build();
+
+        // Intancia arquivos e associa à solicitação
+        List<Copy> copies = copyService.instanceCopiesFromRequest(newSolicitation, solicitationDTO.getCopies());
+        newSolicitation.setCopies(copies);
+
+        // Cria e associa evento inicial de criação à linha do tempo
+        Event creationEvent = Event
+                .builder()
+                .creatorUser(creatorUser)
+                .type(EventType.REQUEST_OPENING)
+                .creationDate(LocalDateTime.now())
+                .build();
+        List<Event> events = List.of(creationEvent);
+        newSolicitation.setTimeline(events);
 
         // Persistir a solicitação no banco de dados
-        return requestRepository.save(newRequest);
+        return solicitationRepository.save(newSolicitation);
     }
 
     /**
@@ -230,23 +256,23 @@ public class RequestService {
      * por este metodo, mantendo seus valores originais.
      *
      * @param id         O ID da solicitação a ser atualizada.
-     * @param newRequest O objeto Request contendo os dados a serem atualizados.
+     * @param newSolicitation O objeto Request contendo os dados a serem atualizados.
      * @return O objeto Request atualizado e persistido na base de dados.
      * @throws EntityNotFoundException Se a solicitação com o ID especificado não for encontrada.
      */
-    public Request patch(Long id, Request newRequest) throws EntityNotFoundException {
-        Optional<Request> request = findById(id);
+    public Solicitation patch(Long id, Solicitation newSolicitation) throws EntityNotFoundException {
+        Optional<Solicitation> request = findById(id);
 
         if (request.isEmpty()) throw new EntityNotFoundException();
 
         // Garante que campos imutáveis não sejam alterados
-        newRequest.setId(request.get().getId());
-        newRequest.setRegistration(request.get().getRegistration());
-        newRequest.setUsername(request.get().getUsername());
-        newRequest.setCreationDate(request.get().getCreationDate());
-        newRequest.setConclusionDate(request.get().getConclusionDate());
+        newSolicitation.setId(request.get().getId());
+        newSolicitation.setRegistration(request.get().getRegistration());
+        newSolicitation.setUsername(request.get().getUsername());
+        newSolicitation.setCreationDate(request.get().getCreationDate());
+        newSolicitation.setConclusionDate(request.get().getConclusionDate());
 
-        return requestRepository.save(newRequest);
+        return solicitationRepository.save(newSolicitation);
     }
 
     /**
@@ -256,33 +282,33 @@ public class RequestService {
      * compara os arquivos existentes com os novos e salva apenas os arquivos novos ou modificados, além de
      * remover os arquivos obsoletos.
      *
-     * @param request      A solicitação à qual os arquivos estão anexados.
+     * @param solicitation      A solicitação à qual os arquivos estão anexados.
      * @param files        A lista de arquivos anexados (MultipartFile).
      * @param isNewRequest Flag indicando se a solicitação é nova (true) ou uma edição (false).
      * @throws IOException            Se ocorrer um erro ao salvar os arquivos no sistema de arquivos.
      * @throws BadRequestException    Se o número de arquivos enviados não corresponder ao número de cópias a serem carregadas.
      * @throws EntityNotFoundException Se a solicitação existente não for encontrada durante uma edição.
      */
-    public void saveFiles(Request request, List<MultipartFile> files, Boolean isNewRequest) throws
+    public void saveFiles(Solicitation solicitation, List<MultipartFile> files, Boolean isNewRequest) throws
             IOException,
             BadRequestException,
             EntityNotFoundException {
-        List<Copy> copiesToUpload = request.getCopies();
+        List<Copy> copiesToUpload = solicitation.getCopies();
         List<Copy> copiesToDelete = null;
 
         // Se não é uma nova solicitação, é edição de uma solicitação existente
         if (!isNewRequest) {
-            Optional<Request> baseRequestOpt = requestRepository.findById(request.getId());
+            Optional<Solicitation> baseRequestOpt = solicitationRepository.findById(solicitation.getId());
 
             if (baseRequestOpt.isPresent()) {
-                Request baseRequest = baseRequestOpt.get();
+                Solicitation baseSolicitation = baseRequestOpt.get();
 
                 // Persistir dono da requisição caso admin que esteja editando
-                request.setUsername(baseRequest.getUsername());
-                request.setRegistration(baseRequest.getRegistration());
+                solicitation.setUsername(baseSolicitation.getUsername());
+                solicitation.setRegistration(baseSolicitation.getRegistration());
 
                 // Filtrar copias a adicionar à solicitação, caso hajam, caso contrário retorna []
-                Map<String, List<Copy>> result = filterUploadDeleteFiles(request, baseRequest);
+                Map<String, List<Copy>> result = filterUploadDeleteFiles(solicitation, baseSolicitation);
                 copiesToUpload = result.get("toUpload");
                 copiesToDelete = result.get("toDelete");
             } else throw new EntityNotFoundException();
@@ -297,7 +323,7 @@ public class RequestService {
         // Retorne sem sobreescrever
         if (files.size() > copiesToUpload.size()) return;
 
-        String requestPath = BASE_DIR + request.getRegistration() + '/' + request.getId();
+        String requestPath = BASE_DIR + solicitation.getRegistration() + '/' + solicitation.getId();
 
         try {
             // Cria o diretório do usuário, se necessário
@@ -342,16 +368,16 @@ public class RequestService {
      */
     public void removeRequest(Long id) throws EntityNotFoundException {
         // Busca a solicitação pelo ID
-        Optional<Request> requestOpt = findById(id);
+        Optional<Solicitation> requestOpt = findById(id);
         if (requestOpt.isEmpty()) throw new EntityNotFoundException();
 
-        Request request = requestOpt.get();
+        Solicitation solicitation = requestOpt.get();
         // Define o caminho da pasta de arquivos associada à solicitação e a remove
-        String requestPath = BASE_DIR + request.getRegistration() + '/' + request.getId();
+        String requestPath = BASE_DIR + solicitation.getRegistration() + '/' + solicitation.getId();
         removeFolder(requestPath);
 
         // Remove a solicitação do banco de dados
-        requestRepository.delete(request);
+        solicitationRepository.delete(solicitation);
     }
 
     /**
@@ -372,7 +398,7 @@ public class RequestService {
      * @throws NoSuchFileException Se o arquivo não for encontrado no sistema de arquivos.
      * @throws IOException Se ocorrer um erro ao ler o arquivo do sistema de arquivos.
      */
-    public ResponseEntity<?> getFileResponse(UserData userData, Long requestID, String fileName) throws
+    public ResponseEntity<?> getFileResponse(SuapUserData userData, Long requestID, String fileName) throws
             PhysicalFileException,
             FileGoneException,
             IOException,
@@ -382,14 +408,14 @@ public class RequestService {
             NoSuchFileException {
 
         // Buscar a solicitação no banco
-        Request request = findById(requestID).orElseThrow(EntityNotFoundException::new);
+        Solicitation solicitation = findById(requestID).orElseThrow(EntityNotFoundException::new);
 
         // Verificar se o usuário tem permissão para acessar o arquivo
         // Lança UnauthorizedException caso usuário não tenha permissão necessária
-        String requestOwnerRegistration = authService.validateUserAccessAndGetOwnerRegistration(userData, request);
+        String requestOwnerRegistration = authService.validateUserAccessAndGetOwnerRegistration(userData, solicitation);
 
         // Buscar se o arquivo existe dentro da solicitação
-        Copy copy = request.getCopies()
+        Copy copy = solicitation.getCopies()
                 .stream()
                 .filter(c -> Objects.equals(c.getFileName(), fileName))
                 .findFirst()
@@ -415,22 +441,22 @@ public class RequestService {
      * @throws UnauthorizedException Caso o usuário não tenha permissão para interagir com a solicitação.
      * @throws ForbiddenException Caso o usuário tente modificar uma solicitação arquivada.
      */
-    public Request canInteract(Long requestId, UserData userData, boolean patchOrDelete) throws
+    public Solicitation canInteract(Long requestId, SuapUserData userData, boolean patchOrDelete) throws
             EntityNotFoundException,
             UnauthorizedException,
             ForbiddenException {
-        Optional<Request> requestOpt = requestRepository.findById(requestId);
+        Optional<Solicitation> requestOpt = solicitationRepository.findById(requestId);
         if (requestOpt.isEmpty()) throw new EntityNotFoundException();
 
-        Request request = requestOpt.get();
+        Solicitation solicitation = requestOpt.get();
 
         // Proíba iterações do tipo modificação (PATCH/DELETE) se solicitação estiver arquivada
-        if (patchOrDelete && request.isStale()) throw new ForbiddenException();
+        if (patchOrDelete && solicitation.isStale()) throw new ForbiddenException();
 
         // Proíba iterações se a solicitação não pertencer ao usuário e o mesmo não for admin
-        if (!userData.isAdmin() && !request.getRegistration().equals(userData.getMatricula())) throw new UnauthorizedException();
+        if (!userData.isAdmin() && !solicitation.getRegistration().equals(userData.getMatricula())) throw new UnauthorizedException();
 
-        return request;
+        return solicitation;
     }
 
     /**
@@ -444,11 +470,11 @@ public class RequestService {
      * @return O número total de arquivos removidos durante a execução da tarefa.
      */
     public int removeStaleFiles() {
-        List<Request> requests = requestRepository.findAll();
+        List<Solicitation> solicitations = solicitationRepository.findAll();
         long now = new Date().getTime();
         AtomicInteger deletedTotal = new AtomicInteger();
 
-        requests.forEach((request) -> {
+        solicitations.forEach((request) -> {
             // Se a solicitação já é obsoleta, ignora.
             // Se a solicitação está fechada (conclusionDate != 0) e o período de remoção já passou...
             if (!request.isStale() &&
@@ -466,7 +492,7 @@ public class RequestService {
 
                 // Atualizar status de obsolência da solicitação
                 request.setStale(true);
-                requestRepository.save(request);
+                solicitationRepository.save(request);
 
                 deletedTotal.addAndGet(numDeleted);
             }
@@ -565,23 +591,23 @@ public class RequestService {
      * (presentes na solicitação atualizada, mas não na original) e quais precisam ser removidos
      * (presentes na solicitação original, mas não na atualizada).
      *
-     * @param updatedRequest  A solicitação atualizada.
-     * @param originalRequest A versão original da solicitação.
+     * @param updatedSolicitation  A solicitação atualizada.
+     * @param originalSolicitation A versão original da solicitação.
      * @return Um mapa contendo duas listas: "toUpload" (cópias a serem adicionadas) e "toDelete" (cópias a serem removidas).
      */
-    private Map<String, List<Copy>> filterUploadDeleteFiles(Request updatedRequest, Request originalRequest) {
+    private Map<String, List<Copy>> filterUploadDeleteFiles(Solicitation updatedSolicitation, Solicitation originalSolicitation) {
         // Obtém os nomes dos arquivos da solicitação atualizada
-        Set<String> updatedFileNames = getFileNamesFromRequest(updatedRequest);
+        Set<String> updatedFileNames = getFileNamesFromRequest(updatedSolicitation);
         // Obtém os nomes dos arquivos da solicitação original
-        Set<String> originalFileNames = getFileNamesFromRequest(originalRequest);
+        Set<String> originalFileNames = getFileNamesFromRequest(originalSolicitation);
 
         // Identifica as cópias a serem adicionadas (presentes na atualizada, ausentes na original)
-        List<Copy> toUpload = updatedRequest.getCopies().stream()
+        List<Copy> toUpload = updatedSolicitation.getCopies().stream()
                 .filter(copy -> !originalFileNames.contains(copy.getFileName()))
                 .toList();
 
         // Identifica as cópias a serem removidas (ausentes na atualizada, presentes na original)
-        List<Copy> toDelete = originalRequest.getCopies().stream()
+        List<Copy> toDelete = originalSolicitation.getCopies().stream()
                 .filter(copy -> !updatedFileNames.contains(copy.getFileName()))
                 .toList();
 
@@ -594,11 +620,11 @@ public class RequestService {
      * Este metodo recebe um objeto Request e retorna um conjunto contendo os nomes
      * de todos os arquivos associados às cópias da solicitação.
      *
-     * @param request A solicitação da qual os nomes dos arquivos serão extraídos.
+     * @param solicitation A solicitação da qual os nomes dos arquivos serão extraídos.
      * @return Um conjunto de strings contendo os nomes dos arquivos.
      */
-    private Set<String> getFileNamesFromRequest(Request request) {
-        return request.getCopies().stream().map(Copy::getFileName).collect(Collectors.toSet());
+    private Set<String> getFileNamesFromRequest(Solicitation solicitation) {
+        return solicitation.getCopies().stream().map(Copy::getFileName).collect(Collectors.toSet());
     }
 
     /**

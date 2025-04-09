@@ -1,5 +1,6 @@
 package com.dticnat.controleimpressao.model.dto;
 
+import com.dticnat.controleimpressao.model.enums.Role;
 import lombok.*;
 
 import java.util.List;
@@ -13,7 +14,8 @@ import java.util.List;
  * possui permissão de administrador no sistema.
  */
 @Getter
-public class UserData {
+@Setter
+public class SuapUserData {
     /**
      * Identificador único do usuário no sistema.
      */
@@ -83,22 +85,11 @@ public class UserData {
     /**
      * Objeto contendo informações detalhadas sobre o vínculo do usuário com a instituição.
      */
-    private Affiliation vinculo;
+    private SuapAffiliation vinculo;
 
     /**
      * Flag customizada, inicializada no AuthInterceptor.
-     * Indica se o usuário possui permissão de administrador no sistema.
      */
-    private boolean isAdmin;
-
-    /**
-     * Define a flag que indica se o usuário é administrador.
-     * Este metodo é utilizado para configurar a permissão de administrador do usuário.
-     *
-     * @param admin Valor booleano indicando se o usuário é administrador (true) ou não (false).
-     */
-    public void setAdmin(boolean admin) {
-        isAdmin = admin;
-    }
+    private Role role;
 }
 

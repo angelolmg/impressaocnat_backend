@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 
 import jakarta.persistence.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -22,33 +23,32 @@ import java.util.List;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class Request {
+public class Solicitation {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     /**
-     * Prazo para conclusão da solicitação em segundos.
-     * O valor padrão é de 1 hora (3600 segundos).
+     * Prazo para conclusão da solicitação em horas.
+     * O valor padrão é de 1 hora.
      * O prazo deve ser no mínimo 1 hora e no máximo 48 horas.
      */
     @NotNull(message = "O prazo da solicitação não pode ser nulo.")
-    @Min(value = 3600, message = "O prazo deve ser no mínimo 1 hora (3600 segundos).")
-    @Max(value = 172800, message = "O prazo deve ser no máximo 48 horas (172800 segundos).")
-    private int term;
+    @Min(value = 1, message = "O prazo deve ser no mínimo 1 hora.")
+    @Max(value = 48, message = "O prazo deve ser no máximo 48 horas.")
+    private int deadline;
 
     /**
-     * Timestamp da data e hora em que a solicitação foi criada (em milissegundos desde a época Unix).
+     * Timestamp da data e hora em que a solicitação foi criada.
      */
-    private long creationDate;
+    private LocalDateTime creationDate;
 
     /**
-     * Timestamp da data e hora em que a solicitação foi concluída (em milissegundos desde a época Unix).
-     * O valor padrão para solicitações não concluídas é 0.
+     * Timestamp da data e hora em que a solicitação foi concluída.
      */
     @Builder.Default
-    private long conclusionDate = 0;
+    private LocalDateTime conclusionDate = LocalDateTime.MIN;
 
     /**
      * Indica se a solicitação é considerada obsoleta/arquivada.
@@ -59,7 +59,11 @@ public class Request {
      * Por padrão, é definido como `false`.
      */
     @Builder.Default
-    private boolean stale = false;
+    private boolean archived = false;
+
+    @Embedded
+    @NotNull(message = "O usuário de criação não pode ser nulo.")
+    private User creatorUser; // Usuário que criou
 
     /**
      * Número total de páginas a serem impressas na solicitação, calculado com base nas cópias.
@@ -68,29 +72,18 @@ public class Request {
     private int totalPageCount;
 
     /**
-     * Nome de usuário associado à solicitação.
-     * Este campo é obrigatório e não pode ser nulo ou vazio.
-     */
-    @NotNull(message = "O usuário associado não pode ser nulo.")
-    @NotEmpty(message = "O usuário associado não pode ser vazio.")
-    private String username;
-
-    /**
-     * Matrícula do usuário que criou a solicitação.
-     * Este campo é obrigatório e não pode ser nulo.
-     */
-    @NotNull(message = "O matrícula associada não pode ser nula.")
-    private String registration;
-
-    /**
      * Lista de cópias de arquivos anexadas à solicitação.
      * A solicitação deve ter pelo menos uma cópia associada.
      * As cópias são carregadas e persistidas em cascata com a solicitação.
      * A ordem das cópias é mantida pelo ID em ordem ascendente.
      */
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
-    @JoinColumn(name = "request_id", referencedColumnName = "id")
+    @JoinColumn(name = "solicitation_id", referencedColumnName = "id")
     @NotEmpty(message = "Deve haver pelo menos uma cópia na solicitação.")
     @OrderBy("id ASC")
     private List<Copy> copies;
+
+    @OneToMany(mappedBy = "solicitation", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "solicitation_id", referencedColumnName = "id")
+    private List<Event> timeline; // Linha do Tempo Lista<Evento>
 }

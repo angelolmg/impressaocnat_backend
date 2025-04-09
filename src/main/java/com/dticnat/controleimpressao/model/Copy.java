@@ -73,8 +73,8 @@ public class Copy {
      * ID da solicitação à qual esta cópia pertence.
      * Esta coluna é usada para relacionar a cópia com a solicitação correspondente.
      */
-    @Column(name="request_id")
-    private Long requestId;
+    @Column(name="solicitation_id")
+    private Long solicitationId;
 
     /**
      * Observações adicionais sobre a cópia.

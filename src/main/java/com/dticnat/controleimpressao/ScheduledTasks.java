@@ -1,6 +1,6 @@
 package com.dticnat.controleimpressao;
 
-import com.dticnat.controleimpressao.service.RequestService;
+import com.dticnat.controleimpressao.service.SolicitationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,7 +14,7 @@ public class ScheduledTasks {
     private static final Logger logger = LoggerFactory.getLogger(ScheduledTasks.class);
 
     @Autowired
-    private RequestService requestService;
+    private SolicitationService solicitationService;
 
     /**
      * Tarefa agendada para remover arquivos associados a solicitações obsoletas.
@@ -29,7 +29,7 @@ public class ScheduledTasks {
             timeUnit = TimeUnit.HOURS)
     public void cleanupFiles() {
         logger.info("Iniciando a limpeza de arquivos obsoletos...");
-        int deletedFiles = requestService.removeStaleFiles();
+        int deletedFiles = solicitationService.removeStaleFiles();
         logger.info("Limpeza de arquivos obsoletos concluída. [{}] arquivos removidos.", deletedFiles);
     }
 }

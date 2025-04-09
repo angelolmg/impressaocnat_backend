@@ -1,6 +1,6 @@
 package com.dticnat.controleimpressao.controller;
 
-import com.dticnat.controleimpressao.model.Request;
+import com.dticnat.controleimpressao.model.Solicitation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.stereotype.Controller;
@@ -27,26 +27,26 @@ public class ReportController {
      * número total de solicitações) e as adiciona ao modelo para serem renderizadas
      * em um template Thymeleaf chamado "report.html".
      *
-     * @param requests A lista de solicitações a serem incluídas no relatório.
+     * @param solicitations A lista de solicitações a serem incluídas no relatório.
      * @param model    O modelo Spring para passar dados para a view (Thymeleaf).
      * @return O nome do template Thymeleaf a ser renderizado ("report").
      */
     @PostMapping
-    public String generateReport(@RequestBody @Valid List<Request> requests, Model model) {
+    public String generateReport(@RequestBody @Valid List<Solicitation> solicitations, Model model) {
         // Calcular a data de geração do relatório
         String reportGenerationDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss"));
 
         // Calcular o número total de páginas de todos os relatórios
-        int totalPageCount = requests.stream()
-                .mapToInt(Request::getTotalPageCount)
+        int totalPageCount = solicitations.stream()
+                .mapToInt(Solicitation::getTotalPageCount)
                 .sum();
 
         // Adicionar informações ao modelo
         model.addAttribute("institutionName", "Instituto Federal do Rio Grande do Norte - Natal Central (IFRN - CNAT)");
         model.addAttribute("reportGenerationDate", reportGenerationDate);
         model.addAttribute("totalPageCount", totalPageCount);
-        model.addAttribute("totalRequests", requests.size());  // Nova variável
-        model.addAttribute("requests", requests);
+        model.addAttribute("totalRequests", solicitations.size());  // Nova variável
+        model.addAttribute("requests", solicitations);
 
         return "report"; // Renderiza o template Thymeleaf com as informações
     }

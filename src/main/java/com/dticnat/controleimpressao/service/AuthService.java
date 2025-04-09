@@ -1,8 +1,9 @@
 package com.dticnat.controleimpressao.service;
 
 import com.dticnat.controleimpressao.exception.UnauthorizedException;
-import com.dticnat.controleimpressao.model.Request;
-import com.dticnat.controleimpressao.model.dto.UserData;
+import com.dticnat.controleimpressao.model.Solicitation;
+import com.dticnat.controleimpressao.model.dto.SuapUserData;
+import com.dticnat.controleimpressao.model.enums.Role;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,8 +15,11 @@ import java.util.Arrays;
 @Service
 public class AuthService {
 
-    @Value("${dticnat.admins.adminRegistrations}")
+    @Value("${dticnat.auth.adminRegistrations}")
     private String[] adminRegistrations;
+
+    @Value("${dticnat.auth.managerRegistrations}")
+    private String[] managerRegistrations;
 
     private static final Logger logger = LoggerFactory.getLogger(AuthService.class);
 
@@ -29,16 +33,16 @@ public class AuthService {
      * @param authToken O token de autenticação do usuário.
      * @return Um objeto UserData contendo os dados do usuário, ou null se a recuperação falhar.
      */
-    public UserData getUserData(String authToken) {
+    public SuapUserData getUserData(String authToken) {
         RestClient restClient = RestClient.builder()
                 .baseUrl("https://suap.ifrn.edu.br")
                 .defaultHeader("Authorization", authToken)
                 .build();
 
-        UserData userData;
+        SuapUserData userData;
 
         try {
-            userData = restClient.get().uri("/api/rh/meus-dados/").retrieve().body(UserData.class);
+            userData = restClient.get().uri("/api/rh/meus-dados/").retrieve().body(SuapUserData.class);
             return userData;
 
         } catch (Exception e) {
@@ -57,11 +61,10 @@ public class AuthService {
      * @param registration A matrícula do usuário a ser verificada.
      * @return true se o usuário for administrador, false caso contrário.
      */
-    public boolean isAdmin(String registration) {
-        if (registration == null) {
-            return false;
-        }
-        return Arrays.asList(adminRegistrations).contains(registration);
+    public Role getRole(String registration) {
+        if (Arrays.asList(managerRegistrations).contains(registration)) return Role.MANAGER;
+        if (Arrays.asList(adminRegistrations).contains(registration)) return Role.ADMIN;
+        return Role.USER;
     }
 
     /**
@@ -72,15 +75,15 @@ public class AuthService {
      * uma exceção UnauthorizedException é lançada.
      *
      * @param userData O objeto UserData do usuário autenticado.
-     * @param request  A solicitação que se deseja acessar.
+     * @param solicitation  A solicitação que se deseja acessar.
      * @return A matrícula do proprietário da solicitação.
      * @throws UnauthorizedException Se o usuário não tiver permissão para acessar a solicitação.
      */
-    public String validateUserAccessAndGetOwnerRegistration(UserData userData, Request request) throws UnauthorizedException {
-        boolean isAdmin = isAdmin(userData.getMatricula());
-        String requestOwner = String.valueOf(request.getRegistration());
+    public String validateUserAccessAndGetOwnerRegistration(SuapUserData userData, Solicitation solicitation) throws UnauthorizedException {
+        boolean isAdminOrManager = getRole(userData.getMatricula()) != Role.USER;
+        String requestOwner = String.valueOf(solicitation.getCreatorUser().getRegistrationNumber());
 
-        if (!isAdmin && !userData.getMatricula().equals(requestOwner)) {
+        if (!isAdminOrManager && !userData.getMatricula().equals(requestOwner)) {
             throw new UnauthorizedException();
         }
 

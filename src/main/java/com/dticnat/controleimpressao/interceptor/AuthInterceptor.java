@@ -1,7 +1,7 @@
 package com.dticnat.controleimpressao.interceptor;
 
 import com.dticnat.controleimpressao.exception.AuthorizationException;
-import com.dticnat.controleimpressao.model.dto.UserData;
+import com.dticnat.controleimpressao.model.dto.SuapUserData;
 import com.dticnat.controleimpressao.service.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -31,12 +31,12 @@ public class AuthInterceptor implements HandlerInterceptor {
             throw new AuthorizationException("Usuário não autenticado.", HttpStatus.UNAUTHORIZED);
         }
 
-        UserData userData = authService.getUserData(token);
-        if (userData == null) {
+        SuapUserData userData = authService.getUserData(token);
+        if (userData == null || userData.getMatricula() == null) {
             throw new AuthorizationException("Usuário não encontrado.", HttpStatus.NOT_FOUND);
         }
 
-        userData.setAdmin(authService.isAdmin(userData.getMatricula()));
+        userData.setRole(authService.getRole(userData.getMatricula()));
         request.setAttribute("userData", userData);
 
         return true;

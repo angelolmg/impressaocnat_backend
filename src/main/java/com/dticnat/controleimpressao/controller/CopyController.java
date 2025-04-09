@@ -2,10 +2,10 @@ package com.dticnat.controleimpressao.controller;
 
 import com.dticnat.controleimpressao.exception.UnauthorizedException;
 import com.dticnat.controleimpressao.model.Copy;
-import com.dticnat.controleimpressao.model.dto.UserData;
+import com.dticnat.controleimpressao.model.dto.SuapUserData;
 import com.dticnat.controleimpressao.service.AuthService;
 import com.dticnat.controleimpressao.service.CopyService;
-import com.dticnat.controleimpressao.service.RequestService;
+import com.dticnat.controleimpressao.service.SolicitationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -33,7 +33,7 @@ public class CopyController {
     private CopyService copyService;
 
     @Autowired
-    private RequestService requestService;
+    private SolicitationService solicitationService;
 
     @Autowired
     private AuthService authService;
@@ -66,12 +66,12 @@ public class CopyController {
                                                   @Parameter(description = "Termo de pesquisa para filtrar por nome de arquivo (opcional).") @RequestParam(value = "query", required = false) String query,
                                                   @Parameter(description = "ID da solicitação da qual as cópias serão listadas.") @PathVariable Long requestId) {
         // Recuperar dados do usuário
-        UserData userData = (UserData) httpRequest.getAttribute("userData");
+        SuapUserData userData = (SuapUserData) httpRequest.getAttribute("userData");
 
         try {
             // Verificar se solicitação sendo alterada pertence ao usuário tentando editá-la
             // Se o usuario for admin, ele pode editar mesmo solicitações que não são dele
-            requestService.canInteract(requestId, userData, false);
+            solicitationService.canInteract(requestId, userData, false);
             List<Copy> copies = copyService.findAllByRequestId(requestId, query);
             return ResponseEntity.ok(copies);
 
