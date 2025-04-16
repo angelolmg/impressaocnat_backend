@@ -21,7 +21,7 @@ public class Event {
     private Long id;
 
     @Embedded
-    private User creatorUser; // Usuário que criou
+    private User user; // Usuário que criou
 
     private String content; // Conteúdo
 

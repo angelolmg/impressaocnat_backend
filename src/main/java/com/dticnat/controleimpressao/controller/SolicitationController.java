@@ -5,9 +5,9 @@ import com.dticnat.controleimpressao.exception.ForbiddenException;
 import com.dticnat.controleimpressao.exception.PhysicalFileException;
 import com.dticnat.controleimpressao.exception.UnauthorizedException;
 import com.dticnat.controleimpressao.model.Solicitation;
+import com.dticnat.controleimpressao.model.User;
 import com.dticnat.controleimpressao.model.dto.Payload;
 import com.dticnat.controleimpressao.model.dto.SolicitationDTO;
-import com.dticnat.controleimpressao.model.dto.SuapUserData;
 import com.dticnat.controleimpressao.service.AuthService;
 import com.dticnat.controleimpressao.service.CopyService;
 import com.dticnat.controleimpressao.service.SolicitationService;
@@ -74,12 +74,12 @@ public class SolicitationController {
                                             @Parameter(description = "Termo de pesquisa para filtragem por texto (opcional).") @RequestParam(value = "query", required = false) String query) {
 
         // Recuperar dados do usuário autenticado do request http
-        SuapUserData userData = (SuapUserData) httpRequest.getAttribute("userData");
+        User user = (User) httpRequest.getAttribute("userPrincipal");
 
         // Se for admin retornaremos TODAS as solicitações, não passamos filtro de matrícula
         // Se não for, passamos a matrícula como filtro
         // A não ser que o admin esteja filtrando seus resultados para receber apenas as próprias solicitações
-        String userRegistration = (!userData.isAdmin() || (filtering != null && filtering)) ? userData.getMatricula() : null;
+        String userRegistration = (!user.isAdminOrManager() || (filtering != null && filtering)) ? user.getRegistrationNumber() : null;
 
         // Buscar as solicitações filtradas
         List<Solicitation> solicitations = solicitationService.findAll(startDate, endDate, query, concluded, userRegistration);
@@ -106,12 +106,12 @@ public class SolicitationController {
                                             @Parameter(description = "ID da solicitação a ser buscada.") @PathVariable Long requestId) {
 
         // Recuperar dados do usuário autenticado do request http
-        SuapUserData userData = (SuapUserData) httpRequest.getAttribute("userData");
+        User user = (User) httpRequest.getAttribute("userPrincipal");
 
         // Verificar se solicitação sendo alterada pertence ao usuário tentando buscá-la
         // Se o usuario for admin, ele pode editar mesmo solicitações que não são dele
         try {
-            Solicitation userSolicitation = solicitationService.canInteract(requestId, userData, false);
+            Solicitation userSolicitation = solicitationService.canInteract(requestId, user, false);
             return ResponseEntity.ok(userSolicitation);
 
         } catch (EntityNotFoundException e) {
@@ -151,11 +151,11 @@ public class SolicitationController {
                                           @Parameter(description = "Nome do arquivo a ser baixado.") @PathVariable String fileName) {
 
         // Recuperar dados do usuário autenticado do request http
-        SuapUserData userData = (SuapUserData) httpRequest.getAttribute("userData");
+        User user = (User) httpRequest.getAttribute("userPrincipal");
 
         try {
             // Chama o serviço para realizar a lógica de validação e busca do arquivo
-            return solicitationService.getFileResponse(userData, id, fileName);
+            return solicitationService.getFileResponse(user, id, fileName);
 
             // A operação de buscar um arquivo em disco pode gerar diversas exceções diferentes
             // Aqui foi bastante glanularizado para buscar retornar a mensagem de erro mais apropriada
@@ -222,12 +222,12 @@ public class SolicitationController {
                                               @RequestPart(value = "arquivos", required = false) List<MultipartFile> files) {
 
         // Recuperar dados do usuário autenticado do request http
-        SuapUserData userData = (SuapUserData) httpRequest.getAttribute("userData");
+        User user = (User) httpRequest.getAttribute("userPrincipal");
 
         try {
             // Verificar se solicitação sendo alterada pertence ao usuário tentando editá-la
             // Se o usuario for admin, ele pode editar mesmo solicitações que não são dele
-            solicitationService.canInteract(requestId, userData, true);
+            solicitationService.canInteract(requestId, user, true);
 
             // Caso não sejam enviados dados de arquivos digitais, inicializa-se um placeholder vazio
             if (files == null) files = new ArrayList<>();
@@ -290,10 +290,10 @@ public class SolicitationController {
                                            @Parameter(description = "Lista de arquivos associados a solicitação") @RequestPart(value = "arquivos", required = false) List<MultipartFile> files) {
 
         // Recuperar dados do usuário autenticado do request http
-        SuapUserData userData = (SuapUserData) httpRequest.getAttribute("userData");
+        User user = (User) httpRequest.getAttribute("userPrincipal");
 
         // Criar nova a solicitação no banco de dados
-        Solicitation newSolicitation = solicitationService.create(solicitationDTO, userData);
+        Solicitation newSolicitation = solicitationService.create(solicitationDTO, user);
 
         // Salvar os arquivos em disco
         // Se um arquivo da solicitação dá erro, os demais salvos anteriormente devem ser excluídos
@@ -335,12 +335,12 @@ public class SolicitationController {
                                                  @Parameter(description = "ID da solicitação") @PathVariable Long requestId) {
 
         // Recuperar dados do usuário autenticado do request http
-        SuapUserData userData = (SuapUserData) httpRequest.getAttribute("userData");
+        User user = (User) httpRequest.getAttribute("userPrincipal");
 
         try {
             // Verificar se solicitação sendo alterada pertence ao usuário tentando editá-la
             // Se o usuario for admin, ele pode editar mesmo solicitações que não são dele
-            solicitationService.canInteract(requestId, userData, true);
+            solicitationService.canInteract(requestId, user, true);
 
             // Alterna status da solicitação
             solicitationService.toggleConclusionDatebyId(requestId);
@@ -387,12 +387,12 @@ public class SolicitationController {
     public ResponseEntity<?> removeRequest(HttpServletRequest httpRequest,
                                            @Parameter(description = "ID da solicitação") @PathVariable Long requestId) {
         // Recuperar dados do usuário autenticado do request http
-        SuapUserData userData = (SuapUserData) httpRequest.getAttribute("userData");
+        User user = (User) httpRequest.getAttribute("userPrincipal");
 
         try {
             // Verificar se solicitação sendo alterada pertence ao usuário tentando editá-la
             // Se o usuario for admin, ele pode remover mesmo solicitações que não são dele
-            solicitationService.canInteract(requestId, userData, true);
+            solicitationService.canInteract(requestId, user, true);
 
             // Remove solicitação
             solicitationService.removeRequest(requestId);

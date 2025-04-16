@@ -63,7 +63,7 @@ public class Solicitation {
 
     @Embedded
     @NotNull(message = "O usuário de criação não pode ser nulo.")
-    private User creatorUser; // Usuário que criou
+    private User user; // Usuário que criou
 
     /**
      * Número total de páginas a serem impressas na solicitação, calculado com base nas cópias.
@@ -83,7 +83,7 @@ public class Solicitation {
     @OrderBy("id ASC")
     private List<Copy> copies;
 
-    @OneToMany(mappedBy = "solicitation", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "solicitation_id", referencedColumnName = "id")
     private List<Event> timeline; // Linha do Tempo Lista<Evento>
 }

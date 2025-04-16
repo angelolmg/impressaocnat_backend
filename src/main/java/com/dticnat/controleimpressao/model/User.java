@@ -10,7 +10,6 @@ import lombok.NoArgsConstructor;
 import java.util.List;
 
 @Embeddable
-@Entity
 @Data
 @Builder
 @AllArgsConstructor
@@ -22,9 +21,17 @@ public class User {
 
     @ElementCollection
     private List<String> phoneNumbers; // Telefones Lista<String>
-    private String sector; // Setor supo
+    private String sector; // Setor suap
     private String photoUrl; // url Foto
 
     @Enumerated(EnumType.STRING)
     private Role role; // Papel (enum)
+
+    public boolean isAdminOrManager() {
+        return role.equals(Role.ADMIN) || role.equals(Role.MANAGER);
+    }
+
+    public boolean isAdmin() {
+        return role.equals(Role.ADMIN);
+    }
 }

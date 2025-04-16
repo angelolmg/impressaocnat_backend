@@ -1,6 +1,4 @@
 package com.dticnat.controleimpressao.model.dto;
-
-import com.dticnat.controleimpressao.model.enums.Role;
 import lombok.*;
 
 import java.util.List;
@@ -13,8 +11,7 @@ import java.util.List;
  * contato, informações acadêmicas/profissionais e uma flag customizada para indicar se o usuário
  * possui permissão de administrador no sistema.
  */
-@Getter
-@Setter
+@Data
 public class SuapUserData {
     /**
      * Identificador único do usuário no sistema.
@@ -86,10 +83,5 @@ public class SuapUserData {
      * Objeto contendo informações detalhadas sobre o vínculo do usuário com a instituição.
      */
     private SuapAffiliation vinculo;
-
-    /**
-     * Flag customizada, inicializada no AuthInterceptor.
-     */
-    private Role role;
 }
 

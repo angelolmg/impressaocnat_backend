@@ -1,6 +1,6 @@
 package com.dticnat.controleimpressao.controller;
 
-import com.dticnat.controleimpressao.model.dto.SuapUserData;
+import com.dticnat.controleimpressao.model.User;
 import com.dticnat.controleimpressao.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -47,14 +47,14 @@ public class UserController {
             @RequestParam("registration") String registration) {
 
         // Recuperar dados do usuário autenticado do request http
-        SuapUserData userData = (SuapUserData) httpRequest.getAttribute("userData");
+        User user = (User) httpRequest.getAttribute("userPrincipal");
 
         // Usuário só pode conferir o próprio status de admin
-        if(registration.equals(userData.getMatricula())) {
-            return ResponseEntity.ok(userData.isAdmin());
+        if(registration.equals(user.getRegistrationNumber())) {
+            return ResponseEntity.ok(user.isAdmin());
         // OU o status de outros usuários caso ele mesmo seja admin
-        } else if (userData.isAdmin()) {
-            return ResponseEntity.ok(authService.isAdmin(registration));
+        } else if (user.isAdmin()) {
+            return ResponseEntity.ok(user.isAdmin());
         } else {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .contentType(MediaType.TEXT_PLAIN)
