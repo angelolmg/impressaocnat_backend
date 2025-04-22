@@ -1,5 +1,7 @@
 package com.dticnat.controleimpressao.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -31,12 +33,14 @@ public class Copy {
      */
     @NotNull(message = "O nome do arquivo não pode ser nulo.")
     @NotEmpty(message = "O nome do arquivo não pode ser vazio.")
+    @Schema(example = "arquivo.pdf")
     private String fileName;
 
     /**
      * Tipo de arquivo da cópia.
      * Geralmente indica o formato do arquivo, como 'application/pdf'.
      */
+    @Schema(example = "application/pdf")
     private String fileType;
 
     /**
@@ -73,8 +77,10 @@ public class Copy {
      * ID da solicitação à qual esta cópia pertence.
      * Esta coluna é usada para relacionar a cópia com a solicitação correspondente.
      */
-    @Column(name="solicitation_id")
-    private Long solicitationId;
+    @ManyToOne
+    @JoinColumn(name="solicitation_id")
+    @JsonIgnore
+    private Solicitation solicitation;
 
     /**
      * Observações adicionais sobre a cópia.

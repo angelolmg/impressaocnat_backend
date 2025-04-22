@@ -89,7 +89,7 @@ public class SolicitationController {
     /**
      * Busca uma solicitação pelo ID, com validação de permissão para usuários não administradores.
             *
-            * @param requestId ID da solicitação a ser buscada.
+            * @param solicitationId ID da solicitação a ser buscada.
             * @return Solicitação encontrada (se o usuário tiver permissão) ou mensagem de erro.
             */
     @Operation(summary = "Busca uma solicitação pelo ID")
@@ -101,9 +101,9 @@ public class SolicitationController {
             @ApiResponse(responseCode = "404", description = "Solicitação não encontrada.",
                     content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Solicitação com ID 123 não encontrada.")))
     })
-    @GetMapping("/{requestId}")
-    public ResponseEntity<?> getRequestById(HttpServletRequest httpRequest,
-                                            @Parameter(description = "ID da solicitação a ser buscada.") @PathVariable Long requestId) {
+    @GetMapping("/{solicitationId}")
+    public ResponseEntity<?> getSolicitationById(HttpServletRequest httpRequest,
+                                            @Parameter(description = "ID da solicitação a ser buscada.") @PathVariable Long solicitationId) {
 
         // Recuperar dados do usuário autenticado do request http
         User user = (User) httpRequest.getAttribute("userPrincipal");
@@ -111,13 +111,13 @@ public class SolicitationController {
         // Verificar se solicitação sendo alterada pertence ao usuário tentando buscá-la
         // Se o usuario for admin, ele pode editar mesmo solicitações que não são dele
         try {
-            Solicitation userSolicitation = solicitationService.canInteract(requestId, user, false);
+            Solicitation userSolicitation = solicitationService.canInteract(solicitationId, user, false);
             return ResponseEntity.ok(userSolicitation);
 
         } catch (EntityNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .contentType(MediaType.TEXT_PLAIN)
-                    .body("Solicitação com ID " + requestId + " não encontrada.");
+                    .body("Solicitação com ID " + solicitationId + " não encontrada.");
         } catch (UnauthorizedException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .contentType(MediaType.TEXT_PLAIN)
@@ -193,7 +193,7 @@ public class SolicitationController {
     /**
      * Atualiza parcialmente uma solicitação existente, permitindo a modificação de dados e a adição/substituição de arquivos.
      *
-     * @param requestId   ID da solicitação a ser atualizada.
+     * @param solicitationId   ID da solicitação a ser atualizada.
      * @param solicitation     Objeto Request contendo os dados a serem atualizados.
      * @param files       Lista de arquivos a serem adicionados ou substituídos (opcional).
      * @return Solicitação atualizada ou mensagem de erro.
@@ -213,9 +213,9 @@ public class SolicitationController {
             @ApiResponse(responseCode = "500", description = "Erro interno ao processar a solicitação ou arquivos.",
                     content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Erro inesperado ao processar solicitação.")))
     })
-    @PatchMapping(value = "/{requestId}", consumes = {"multipart/form-data"})
+    @PatchMapping(value = "/{solicitationId}", consumes = {"multipart/form-data"})
     public ResponseEntity<?> patchRequest(HttpServletRequest httpRequest,
-            @Parameter(description = "ID da solicitação") @PathVariable Long requestId,
+            @Parameter(description = "ID da solicitação") @PathVariable Long solicitationId,
             @Parameter(description = "Dados da solicitação a serem atualizados")
                                               @RequestPart("solicitacao") @Valid Solicitation solicitation,
             @Parameter(description = "Lista de arquivos a serem adicionados/substituídos")
@@ -225,9 +225,13 @@ public class SolicitationController {
         User user = (User) httpRequest.getAttribute("userPrincipal");
 
         try {
+            // ID e solicitação precisam corresponder
+            if(!Objects.equals(solicitationId, solicitation.getId()))
+                throw new BadRequestException("ID enviado não corresponde à solicitação.");
+
             // Verificar se solicitação sendo alterada pertence ao usuário tentando editá-la
             // Se o usuario for admin, ele pode editar mesmo solicitações que não são dele
-            solicitationService.canInteract(requestId, user, true);
+            solicitationService.canInteract(solicitationId, user, true);
 
             // Caso não sejam enviados dados de arquivos digitais, inicializa-se um placeholder vazio
             if (files == null) files = new ArrayList<>();
@@ -238,7 +242,7 @@ public class SolicitationController {
 
             // Intancia cópias associadas na database antes de editar solicitação
             // copyService.instanceCopiesFromRequest(request);
-            Solicitation editedSolicitation = solicitationService.patch(requestId, solicitation);
+            Solicitation editedSolicitation = solicitationService.patch(solicitationId, solicitation, user);
 
             // Retorna solicitação editada
             return ResponseEntity.ok(editedSolicitation);
@@ -246,7 +250,7 @@ public class SolicitationController {
         } catch (EntityNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .contentType(MediaType.TEXT_PLAIN)
-                    .body("Solicitação com ID " + requestId + " não encontrada.");
+                    .body("Solicitação com ID " + solicitationId + " não encontrada.");
         } catch (UnauthorizedException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .contentType(MediaType.TEXT_PLAIN)
@@ -316,13 +320,13 @@ public class SolicitationController {
     /**
      * Altera o status de conclusão de uma solicitação para concluída ou não concluída.
      *
-     * @param requestId ID da solicitação a ter o status atualizado.
+     * @param solicitationId ID da solicitação a ter o status atualizado.
      * @return Mensagem de sucesso ou erro.
      */
     @Operation(summary = "Altera o status de conclusão de uma solicitação")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Status da solicitação atualizado com sucesso.",
-                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Status da solicitação atualizado com sucesso"))),
+                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Status da solicitação atualizado com sucesso."))),
             @ApiResponse(responseCode = "401", description = "Não autorizado. A solicitação não pertence ao usuário ou o usuário não tem permissão para editar.",
                     content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Usuário não autorizado a acessar esta solicitação."))),
             @ApiResponse(responseCode = "403", description = "Não é possível alterar o status de uma solicitação que foi arquivada.",
@@ -330,9 +334,9 @@ public class SolicitationController {
             @ApiResponse(responseCode = "404", description = "Solicitação não encontrada.",
                     content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Solicitação (ID 000123) não encontrada."))),
     })
-    @PatchMapping("/{requestId}/status")
+    @PatchMapping("/{solicitationId}/status")
     public ResponseEntity<?> toggleRequestStatus(HttpServletRequest httpRequest,
-                                                 @Parameter(description = "ID da solicitação") @PathVariable Long requestId) {
+                                                 @Parameter(description = "ID da solicitação") @PathVariable Long solicitationId) {
 
         // Recuperar dados do usuário autenticado do request http
         User user = (User) httpRequest.getAttribute("userPrincipal");
@@ -340,21 +344,16 @@ public class SolicitationController {
         try {
             // Verificar se solicitação sendo alterada pertence ao usuário tentando editá-la
             // Se o usuario for admin, ele pode editar mesmo solicitações que não são dele
-            solicitationService.canInteract(requestId, user, true);
+            Solicitation solicitation = solicitationService.canInteract(solicitationId, user, true);
 
             // Alterna status da solicitação
-            solicitationService.toggleConclusionDatebyId(requestId);
-            Payload<?> response = Payload
-                    .builder()
-                    .status(HttpStatus.OK.value())
-                    .message("Status da solicitação atualizado com sucesso.")
-                    .build();
-            return ResponseEntity.status(response.getStatus()).body(response);
+            solicitationService.toggleConclusionDate(solicitation);
+            return ResponseEntity.ok("Status da solicitação atualizado com sucesso.");
 
         } catch (EntityNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .contentType(MediaType.TEXT_PLAIN)
-                    .body("Solicitação (ID " + String.format("%06d", requestId) + ") não encontrada.");
+                    .body("Solicitação (ID " + String.format("%06d", solicitationId) + ") não encontrada.");
         } catch (UnauthorizedException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .contentType(MediaType.TEXT_PLAIN)
@@ -369,7 +368,7 @@ public class SolicitationController {
     /**
      * Remove uma solicitação pelo ID.
      *
-     * @param requestId ID da solicitação a ser removida.
+     * @param solicitationId ID da solicitação a ser removida.
      * @return Mensagem de sucesso ou erro.
      */
     @Operation(summary = "Remove uma solicitação pelo ID")
@@ -383,31 +382,26 @@ public class SolicitationController {
             @ApiResponse(responseCode = "404", description = "Solicitação não encontrada",
                     content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Solicitação (ID 000123) não encontrada.")))
     })
-    @DeleteMapping("/{requestId}")
+    @DeleteMapping("/{solicitationId}")
     public ResponseEntity<?> removeRequest(HttpServletRequest httpRequest,
-                                           @Parameter(description = "ID da solicitação") @PathVariable Long requestId) {
+                                           @Parameter(description = "ID da solicitação") @PathVariable Long solicitationId) {
         // Recuperar dados do usuário autenticado do request http
         User user = (User) httpRequest.getAttribute("userPrincipal");
 
         try {
             // Verificar se solicitação sendo alterada pertence ao usuário tentando editá-la
             // Se o usuario for admin, ele pode remover mesmo solicitações que não são dele
-            solicitationService.canInteract(requestId, user, true);
+            solicitationService.canInteract(solicitationId, user, true);
 
             // Remove solicitação
-            solicitationService.removeRequest(requestId);
+            solicitationService.removeRequest(solicitationId);
 
-            Payload<?> response = Payload
-                    .builder()
-                    .status(HttpStatus.OK.value())
-                    .message("Solicitação (ID " + String.format("%06d", requestId) + ") removida com sucesso.")
-                    .build();
-            return ResponseEntity.status(response.getStatus()).body(response);
+            return ResponseEntity.ok("Solicitação (ID " + String.format("%06d", solicitationId) + ") removida com sucesso.");
 
         } catch (EntityNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .contentType(MediaType.TEXT_PLAIN)
-                    .body("Solicitação (ID " + String.format("%06d", requestId) + ") não encontrada.");
+                    .body("Solicitação (ID " + String.format("%06d", solicitationId) + ") não encontrada.");
         } catch (UnauthorizedException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .contentType(MediaType.TEXT_PLAIN)
@@ -416,6 +410,10 @@ public class SolicitationController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .contentType(MediaType.TEXT_PLAIN)
                     .body("Não é possível alterar solicitações arquivadas.");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .body(e.getMessage());
         }
     }
 }

@@ -48,7 +48,7 @@ public class OpenAPIConfig {
                 .components(new Components()
                         .addSecuritySchemes(securitySchemeName, new SecurityScheme()
                                 .name(securitySchemeName)
-                                .description("Implicit token obtido após fazer login OAUTH2 no SUAP. Verificar 'suapToken' no localStorage da aplicação front OU fazer login via /api/auth/login-suap")
+                                .description("Token de acesso ao SUAP (Implicit OAUTH2 ou JWT comum). Para obtê-lo, realizar login por meio do endpoint /api/auth/login-suap OU verificar 'suapToken' no localStorage da aplicação front (pós login).")
                                 .type(SecurityScheme.Type.HTTP)
                                 .scheme("bearer")
                                 .bearerFormat("JWT")))

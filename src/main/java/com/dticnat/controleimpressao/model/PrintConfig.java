@@ -1,8 +1,8 @@
 package com.dticnat.controleimpressao.model;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.Embeddable;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -36,12 +36,15 @@ public class PrintConfig {
      * Este campo é obrigatório.
      */
     @NotNull(message = "O tipo de seleção de páginas não pode ser nulo.")
+    @Pattern(regexp = "^Todas$|^Personalizado$", message = "O tipo de seleção de páginas deve ser 'Todas' ou 'Personalizado'.")
     private String pages;
 
     /**
      * Intervalo de páginas a serem impressas, caso o tipo de seleção seja "Personalizado".
      * A string segue um formato específico, como "1-11, 18", "22-23", "10".
      */
+    @Schema(example = "5-11")
+    @Pattern(regexp = "^(\\d+(-\\d+)?)(,\\s*\\d+(-\\d+)?)*$", message = "O intervalo de páginas deve seguir o formato 'n' ou 'n-m' ou 'n-m, k'.")
     private String pageIntervals;
 
     /**
@@ -50,6 +53,8 @@ public class PrintConfig {
      * Este campo é obrigatório.
      */
     @NotNull(message = "O número de páginas por folha não pode ser nulo.")
+    @Min(value = 1, message = "O número de páginas por folha deve ser no mínimo 1.")
+    @Max(value = 4, message = "O número de páginas por folha deve ser no máximo 4.")
     private Integer pagesPerSheet;
 
     /**
@@ -58,6 +63,7 @@ public class PrintConfig {
      * Este campo é obrigatório.
      */
     @NotNull(message = "O layout de impressão não pode ser nulo.")
+    @Pattern(regexp = "^Retrato$|^Paisagem$", message = "O layout de impressão deve ser 'Retrato' ou 'Paisagem'.")
     private String layout;
 
     /**

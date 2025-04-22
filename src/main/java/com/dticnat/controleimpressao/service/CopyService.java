@@ -47,10 +47,11 @@ public class CopyService {
      *
      * @param copyDTO O objeto {@link CopyDTO} a ser persistido.
      */
-    public Copy create(CopyDTO copyDTO, Long requestId) {
+    public Copy create(CopyDTO copyDTO, Solicitation solicitation) {
 
         Copy copy = Copy
                 .builder()
+                .solicitation(solicitation)
                 .fileName(copyDTO.getFileName())
                 .fileType(copyDTO.getFileType())
                 .pageCount(copyDTO.getPageCount())
@@ -60,7 +61,7 @@ public class CopyService {
                 .notes(copyDTO.getNotes())
                 .build();
 
-        return copyRepository.save(copy);
+        return copy;
     }
 
     public Copy save(Copy copy) {
@@ -81,34 +82,33 @@ public class CopyService {
      * Retorna uma lista de cópias de arquivos associadas a um ID de solicitação,
      * permitindo filtrar por um termo de pesquisa no nome do arquivo.
      *
-     * @param requestId O ID da solicitação para a qual buscar as cópias.
+     * @param solicitation A solicitação para a qual buscar as cópias.
      * @param query     Termo de pesquisa para filtrar pelo nome do arquivo (opcional).
      * @return Lista de objetos Copy correspondentes aos critérios de busca.
      */
-    public List<Copy> findAllByRequestId(Long requestId, String query) {
-        Specification<Copy> spec = filterCopies(requestId, query);
+    public List<Copy> findAllBySolicitation(Solicitation solicitation, String query) {
+        Specification<Copy> spec = filterCopies(solicitation, query);
         return copyRepository.findAll(spec, Sort.by(Sort.Direction.ASC, "id"));
     }
 
     /**
-     * Cria uma especificação JPA para filtrar cópias por ID de solicitação e nome de arquivo.
+     * Cria uma especificação JPA para filtrar cópias por Solicitation e nome de arquivo.
      *
-     * @param requestId O ID da solicitação para filtrar as cópias.
+     * @param solicitation A Solicitation para filtrar as cópias.
      * @param userQuery Termo de pesquisa para filtrar pelo nome do arquivo (opcional).
      * @return Uma Specification JPA para a consulta.
      */
-    public Specification<Copy> filterCopies(Long requestId, String userQuery) {
+    public Specification<Copy> filterCopies(Solicitation solicitation, String userQuery) {
         return (Root<Copy> root, CriteriaQuery<?> query, CriteriaBuilder cb) -> {
             Predicate predicate = cb.conjunction();
 
-            // Filtrar por ID de solicitação
-            if (requestId != null) {
-                predicate = cb.and(predicate, cb.equal(root.get("requestId"), requestId));
+            // Filtrar por Solicitation
+            if (solicitation != null) {
+                predicate = cb.and(predicate, cb.equal(root.get("solicitation"), solicitation));
             }
 
             // Filtrar por query de texto no nome do arquivo (case-insensitive e busca parcial)
             if (userQuery != null && !userQuery.isEmpty()) {
-                // Testar se query é nome do solicitante
                 predicate = cb.and(predicate, cb.like(cb.lower(cb.trim(root.get("fileName"))), "%" + userQuery.trim().toLowerCase() + "%"));
             }
 
@@ -118,16 +118,14 @@ public class CopyService {
 
     /**
      * Cria e salva os objetos de cópia associados a uma dada solicitação.
-     *
+     * <p>
      * Este metodo itera sobre a lista de cópias de uma solicitação, define o ID da solicitação
      * e o status inicial do arquivo em disco, e persiste cada cópia no banco de dados.
-     *
-     * @param solicitation A solicitação da qual as cópias serão instanciadas.
      */
     public List<Copy> instanceCopiesFromRequest(Solicitation solicitation, List<CopyDTO> copiesDTO) {
         List<Copy> copies = new ArrayList<>();
         copiesDTO.forEach((copyDTO) -> {
-            copies.add(create(copyDTO, solicitation.getId()));
+            copies.add(create(copyDTO, solicitation));
         });
 
         return copies;

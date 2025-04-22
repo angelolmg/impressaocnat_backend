@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import jakarta.persistence.*;
+import org.hibernate.validator.constraints.Range;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -35,8 +36,7 @@ public class Solicitation {
      * O prazo deve ser no mínimo 1 hora e no máximo 48 horas.
      */
     @NotNull(message = "O prazo da solicitação não pode ser nulo.")
-    @Min(value = 1, message = "O prazo deve ser no mínimo 1 hora.")
-    @Max(value = 48, message = "O prazo deve ser no máximo 48 horas.")
+    @Range(min=1, max=48, message = "O prazo deve ser estar entre 1 e 48 horas.")
     private int deadline;
 
     /**
@@ -48,7 +48,7 @@ public class Solicitation {
      * Timestamp da data e hora em que a solicitação foi concluída.
      */
     @Builder.Default
-    private LocalDateTime conclusionDate = LocalDateTime.MIN;
+    private LocalDateTime conclusionDate = null;
 
     /**
      * Indica se a solicitação é considerada obsoleta/arquivada.
@@ -62,7 +62,6 @@ public class Solicitation {
     private boolean archived = false;
 
     @Embedded
-    @NotNull(message = "O usuário de criação não pode ser nulo.")
     private User user; // Usuário que criou
 
     /**
@@ -77,13 +76,12 @@ public class Solicitation {
      * As cópias são carregadas e persistidas em cascata com a solicitação.
      * A ordem das cópias é mantida pelo ID em ordem ascendente.
      */
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
-    @JoinColumn(name = "solicitation_id", referencedColumnName = "id")
+    @OneToMany(mappedBy = "solicitation", cascade = CascadeType.ALL, orphanRemoval = true)
     @NotEmpty(message = "Deve haver pelo menos uma cópia na solicitação.")
     @OrderBy("id ASC")
     private List<Copy> copies;
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
-    @JoinColumn(name = "solicitation_id", referencedColumnName = "id")
+    @OneToMany(mappedBy = "solicitation", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("creationDate DESC")
     private List<Event> timeline; // Linha do Tempo Lista<Evento>
 }

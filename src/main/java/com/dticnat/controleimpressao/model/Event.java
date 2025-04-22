@@ -1,6 +1,7 @@
 package com.dticnat.controleimpressao.model;
 
 import com.dticnat.controleimpressao.model.enums.EventType;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -30,6 +31,8 @@ public class Event {
 
     private LocalDateTime creationDate; // Data de criação
 
-    @Column(name="solicitation_id")
-    private Long solicitationId;
+    @ManyToOne
+    @JoinColumn(name="solicitation_id")
+    @JsonIgnore
+    private Solicitation solicitation;
 }

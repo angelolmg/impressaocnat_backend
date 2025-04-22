@@ -164,24 +164,20 @@ public class SolicitationService {
      * a data de conclusão é definida como zero, marcando-a como pendente. Caso contrário, a data de
      * conclusão é definida como a data atual, marcando-a como concluída.
      *
-     * @param id O ID da solicitação a ser atualizada.
+     * @param solicitation A solicitação a ser atualizada.
      * @throws EntityNotFoundException Se a solicitação com o ID especificado não for encontrada.
      * @throws ForbiddenException Se a solicitação estiver arquivada (stale), impedindo a alteração do status.
      */
-    public void toggleConclusionDatebyId(Long id) throws EntityNotFoundException, ForbiddenException {
-        // Verifica se solicitação existe
-        Solicitation solicitation = findById(id)
-                .orElseThrow(EntityNotFoundException::new);
-
+    public void toggleConclusionDate(Solicitation solicitation) throws EntityNotFoundException, ForbiddenException {
         // Não atualize o status de solicitações obsoletas/arquivadas
         if (solicitation.isArchived()) throw new ForbiddenException();
 
         // Se a data de conclusão for maior que zero, define como zero (pendente),
         // caso contrário, define como a data atual (concluída).
         solicitation.setConclusionDate(
-                !solicitation.getConclusionDate().isEqual(LocalDateTime.MIN) ?
-                        LocalDateTime.MIN :
-                        LocalDateTime.now()
+                solicitation.getConclusionDate() == null ?
+                        LocalDateTime.now() :
+                        null
         );
 
         solicitationRepository.save(solicitation);
@@ -213,6 +209,7 @@ public class SolicitationService {
         // Cria e associa evento inicial de criação à linha do tempo
         Event creationEvent = Event
                 .builder()
+                .solicitation(newSolicitation)
                 .user(user)
                 .type(EventType.REQUEST_OPENING)
                 .creationDate(LocalDateTime.now())
@@ -236,16 +233,27 @@ public class SolicitationService {
      * @return O objeto Request atualizado e persistido na base de dados.
      * @throws EntityNotFoundException Se a solicitação com o ID especificado não for encontrada.
      */
-    public Solicitation patch(Long id, Solicitation newSolicitation) throws EntityNotFoundException {
-        Optional<Solicitation> request = findById(id);
-
-        if (request.isEmpty()) throw new EntityNotFoundException();
+    public Solicitation patch(Long id, Solicitation newSolicitation, User user) throws EntityNotFoundException {
+        Solicitation solicitation = findById(id).orElseThrow(EntityNotFoundException::new);
 
         // Garante que campos imutáveis não sejam alterados
-        newSolicitation.setId(request.get().getId());
+        newSolicitation.setId(solicitation.getId());
+        newSolicitation.setArchived(solicitation.isArchived());
         newSolicitation.setUser(newSolicitation.getUser());
-        newSolicitation.setCreationDate(request.get().getCreationDate());
-        newSolicitation.setConclusionDate(request.get().getConclusionDate());
+        newSolicitation.setCreationDate(solicitation.getCreationDate());
+        newSolicitation.setConclusionDate(solicitation.getConclusionDate());
+
+        solicitation.getTimeline().add(
+                Event
+                        .builder()
+                        .solicitation(newSolicitation)
+                        .user(user)
+                        .type(EventType.REQUEST_EDITING)
+                        .creationDate(LocalDateTime.now())
+                        .build()
+        );
+
+        newSolicitation.setTimeline(solicitation.getTimeline());
 
         return solicitationRepository.save(newSolicitation);
     }
@@ -273,19 +281,16 @@ public class SolicitationService {
 
         // Se não é uma nova solicitação, é edição de uma solicitação existente
         if (!isNewRequest) {
-            Optional<Solicitation> baseRequestOpt = solicitationRepository.findById(solicitation.getId());
+            Solicitation baseSolicitation = solicitationRepository.findById(solicitation.getId())
+                    .orElseThrow(EntityNotFoundException::new);
 
-            if (baseRequestOpt.isPresent()) {
-                Solicitation baseSolicitation = baseRequestOpt.get();
+            // Persistir dono da requisição caso admin que esteja editando
+            solicitation.setUser(baseSolicitation.getUser());
 
-                // Persistir dono da requisição caso admin que esteja editando
-                solicitation.setUser(baseSolicitation.getUser());
-
-                // Filtrar copias a adicionar à solicitação, caso hajam, caso contrário retorna []
-                Map<String, List<Copy>> result = filterUploadDeleteFiles(solicitation, baseSolicitation);
-                copiesToUpload = result.get("toUpload");
-                copiesToDelete = result.get("toDelete");
-            } else throw new EntityNotFoundException();
+            // Filtrar copias a adicionar à solicitação, caso hajam, caso contrário retorna []
+            Map<String, List<Copy>> result = filterUploadDeleteFiles(solicitation, baseSolicitation);
+            copiesToUpload = result.get("toUpload");
+            copiesToDelete = result.get("toDelete");
         }
 
         // Checar se o número de arquivos anexados é igual ao número de objetos de cópia
@@ -342,13 +347,11 @@ public class SolicitationService {
      */
     public void removeRequest(Long id) throws EntityNotFoundException {
         // Busca a solicitação pelo ID
-        Optional<Solicitation> requestOpt = findById(id);
-        if (requestOpt.isEmpty()) throw new EntityNotFoundException();
+        Solicitation solicitation = solicitationRepository.findById(id).orElseThrow(EntityNotFoundException::new);
 
-        Solicitation solicitation = requestOpt.get();
         // Define o caminho da pasta de arquivos associada à solicitação e a remove
-        String requestPath = BASE_DIR + solicitation.getUser().getRegistrationNumber() + '/' + solicitation.getId();
-        removeFolder(requestPath);
+        String solicitationPath = BASE_DIR + solicitation.getUser().getRegistrationNumber() + '/' + solicitation.getId();
+        removeFolder(solicitationPath);
 
         // Remove a solicitação do banco de dados
         solicitationRepository.delete(solicitation);
@@ -361,7 +364,7 @@ public class SolicitationService {
      * a resposta HTTP contendo o arquivo para download.
      *
      * @param user    Dados do usuário autenticado.
-     * @param requestID   ID da solicitação.
+     * @param solicitationId   ID da solicitação.
      * @param fileName    Nome do arquivo a ser baixado.
      * @return ResponseEntity contendo o arquivo para download.
      * @throws EntityNotFoundException Se a solicitação com o ID especificado não for encontrada.
@@ -372,7 +375,7 @@ public class SolicitationService {
      * @throws NoSuchFileException Se o arquivo não for encontrado no sistema de arquivos.
      * @throws IOException Se ocorrer um erro ao ler o arquivo do sistema de arquivos.
      */
-    public ResponseEntity<?> getFileResponse(User user, Long requestID, String fileName) throws
+    public ResponseEntity<?> getFileResponse(User user, Long solicitationId, String fileName) throws
             PhysicalFileException,
             FileGoneException,
             IOException,
@@ -382,7 +385,7 @@ public class SolicitationService {
             NoSuchFileException {
 
         // Buscar a solicitação no banco
-        Solicitation solicitation = findById(requestID).orElseThrow(EntityNotFoundException::new);
+        Solicitation solicitation = findById(solicitationId).orElseThrow(EntityNotFoundException::new);
 
         // Verificar se o usuário tem permissão para acessar o arquivo
         // Lança UnauthorizedException caso usuário não tenha permissão necessária
@@ -397,7 +400,7 @@ public class SolicitationService {
                 .orElseThrow(FileNotFoundException::new);
 
         // Criar resposta com o arquivo
-        return buildFileResponse(requestID, solicitationOwnerRegistration, copy);
+        return buildFileResponse(solicitationId, solicitationOwnerRegistration, copy);
     }
 
     /**
@@ -408,7 +411,7 @@ public class SolicitationService {
      * pertencer ao usuário ou se o usuário for um administrador. Para operações de
      * modificação (PATCH/DELETE), a interação é proibida se a solicitação estiver arquivada.
      *
-     * @param requestId     ID da solicitação a ser verificada.
+     * @param solicitationId     ID da solicitação a ser verificada.
      * @param user      Usuário autenticado.
      * @param patchOrDelete Flag indicando se a interação é uma operação de modificação (PATCH/DELETE).
      * @return A solicitação em questão, se o usuário tiver permissão.
@@ -416,12 +419,12 @@ public class SolicitationService {
      * @throws UnauthorizedException Caso o usuário não tenha permissão para interagir com a solicitação.
      * @throws ForbiddenException Caso o usuário tente modificar uma solicitação arquivada.
      */
-    public Solicitation canInteract(Long requestId, User user, boolean patchOrDelete) throws
+    public Solicitation canInteract(Long solicitationId, User user, boolean patchOrDelete) throws
             EntityNotFoundException,
             UnauthorizedException,
             ForbiddenException {
         // Busca a solicitação
-        Solicitation solicitation = solicitationRepository.findById(requestId).orElseThrow(EntityNotFoundException::new);
+        Solicitation solicitation = solicitationRepository.findById(solicitationId).orElseThrow(EntityNotFoundException::new);
 
         // Proíbe iterações do tipo modificação (PATCH/DELETE) se a solicitação estiver arquivada
         if (patchOrDelete && solicitation.isArchived()) throw new ForbiddenException();
@@ -457,7 +460,7 @@ public class SolicitationService {
                     solicitation.getConclusionDate().plusHours(CLEANUP_RATE_HOURS).isBefore(now)) {
 
                 // Busca todas as cópias associadas à solicitação
-                List<Copy> copies = copyService.findAllByRequestId(solicitation.getId(), "");
+                List<Copy> copies = copyService.findAllBySolicitation(solicitation, "");
                 // Define o caminho da pasta da solicitação
                 String requestPath = BASE_DIR + solicitation.getUser().getRegistrationNumber() + '/' + solicitation.getId();
 
@@ -504,7 +507,7 @@ public class SolicitationService {
      * Caso contrário, lê o arquivo do sistema de arquivos e constrói um ResponseEntity
      * com o arquivo para download.
      *
-     * @param requestID            O ID da solicitação associada ao arquivo.
+     * @param solicitationId            O ID da solicitação associada ao arquivo.
      * @param requestOwnerRegistration O registro do proprietário da solicitação.
      * @param copy                 O objeto Copy que representa o arquivo.
      * @return ResponseEntity contendo o arquivo para download.
@@ -513,7 +516,7 @@ public class SolicitationService {
      * @throws NoSuchFileException   Se o arquivo não for encontrado no sistema de arquivos.
      * @throws IOException           Se ocorrer um erro ao ler o arquivo do sistema de arquivos.
      */
-    private ResponseEntity<?> buildFileResponse(Long requestID, String requestOwnerRegistration, Copy copy) throws
+    private ResponseEntity<?> buildFileResponse(Long solicitationId, String requestOwnerRegistration, Copy copy) throws
             PhysicalFileException,
             FileGoneException,
             NoSuchFileException,
@@ -525,7 +528,7 @@ public class SolicitationService {
         if (!copy.getFileInDisk()) throw new FileGoneException();
 
         // Obtém o arquivo do sistema de arquivos
-        File downloadFile = getFile(requestID, requestOwnerRegistration, copy);
+        File downloadFile = getFile(solicitationId, requestOwnerRegistration, copy);
 
         // Lê o conteúdo do arquivo para um ByteArrayInputStream
         // Define os headers da resposta HTTP
@@ -543,14 +546,14 @@ public class SolicitationService {
      * registro do proprietário e nome do arquivo da cópia. Em seguida, verifica se o
      * arquivo existe no sistema de arquivos.
      *
-     * @param requestID            O ID da solicitação associada ao arquivo.
+     * @param solicitationId            O ID da solicitação associada ao arquivo.
      * @param requestOwnerRegistration O registro do proprietário da solicitação.
      * @param copy                 O objeto Copy que representa o arquivo.
      * @return O objeto File representando o arquivo no sistema de arquivos.
      * @throws NoSuchFileException Se o arquivo não for encontrado no sistema de arquivos.
      */
-    private File getFile(Long requestID, String requestOwnerRegistration, Copy copy) throws NoSuchFileException {
-        String fileLocation = BASE_DIR + requestOwnerRegistration + "/" + requestID + "/" + copy.getFileName();
+    private File getFile(Long solicitationId, String requestOwnerRegistration, Copy copy) throws NoSuchFileException {
+        String fileLocation = BASE_DIR + requestOwnerRegistration + "/" + solicitationId + "/" + copy.getFileName();
         File downloadFile = new File(fileLocation);
 
         // Verifica se o arquivo existe no sistema de arquivos

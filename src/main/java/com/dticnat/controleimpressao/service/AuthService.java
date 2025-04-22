@@ -49,7 +49,7 @@ public class AuthService {
                 .commonName(suapUserData.getNome_usual())
                 .registrationNumber(suapUserData.getMatricula())
                 .email(suapUserData.getEmail())
-                .phoneNumbers(suapUserData.getVinculo().getTelefones_institucionais())
+                .phoneNumbers(String.join(", ", suapUserData.getVinculo().getTelefones_institucionais()))
                 .sector(suapUserData.getVinculo().getSetor_suap())
                 .photoUrl(suapUserData.getUrl_foto_150x200())
                 .role(getRole(suapUserData.getMatricula()))
