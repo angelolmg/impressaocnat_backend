@@ -49,7 +49,7 @@ public class CopyService {
      */
     public Copy create(CopyDTO copyDTO, Solicitation solicitation) {
 
-        Copy copy = Copy
+        return Copy
                 .builder()
                 .solicitation(solicitation)
                 .fileName(copyDTO.getFileName())
@@ -60,8 +60,6 @@ public class CopyService {
                 .isPhysicalFile(copyDTO.getIsPhysicalFile())
                 .notes(copyDTO.getNotes())
                 .build();
-
-        return copy;
     }
 
     public Copy save(Copy copy) {

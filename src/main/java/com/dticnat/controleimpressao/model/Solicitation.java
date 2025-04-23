@@ -81,7 +81,8 @@ public class Solicitation {
     @OrderBy("id ASC")
     private List<Copy> copies;
 
-    @OneToMany(mappedBy = "solicitation", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "solicitation_id", referencedColumnName = "id")
     @OrderBy("creationDate DESC")
     private List<Event> timeline; // Linha do Tempo Lista<Evento>
 }

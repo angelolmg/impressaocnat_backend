@@ -63,7 +63,7 @@ public class CopyController {
             )
     })
     @GetMapping("/{solicitationId}")
-    public ResponseEntity<?> getCopiesFromRequest(HttpServletRequest httpRequest,
+    public ResponseEntity<?> getCopiesFromSolicitation(HttpServletRequest httpRequest,
                                                   @Parameter(description = "Termo de pesquisa para filtrar por nome de arquivo (opcional).") @RequestParam(value = "query", required = false) String query,
                                                   @Parameter(description = "ID da solicitação da qual as cópias serão listadas.") @PathVariable Long solicitationId) {
         // Recuperar dados do usuário

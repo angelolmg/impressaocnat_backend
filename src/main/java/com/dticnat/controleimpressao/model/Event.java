@@ -31,8 +31,6 @@ public class Event {
 
     private LocalDateTime creationDate; // Data de criação
 
-    @ManyToOne
-    @JoinColumn(name="solicitation_id")
-    @JsonIgnore
-    private Solicitation solicitation;
+    @Column(name="solicitation_id")
+    private Long solicitationId;
 }

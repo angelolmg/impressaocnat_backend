@@ -6,7 +6,7 @@ import com.dticnat.controleimpressao.exception.PhysicalFileException;
 import com.dticnat.controleimpressao.exception.UnauthorizedException;
 import com.dticnat.controleimpressao.model.Solicitation;
 import com.dticnat.controleimpressao.model.User;
-import com.dticnat.controleimpressao.model.dto.Payload;
+import com.dticnat.controleimpressao.model.dto.CommentDTO;
 import com.dticnat.controleimpressao.model.dto.SolicitationDTO;
 import com.dticnat.controleimpressao.service.AuthService;
 import com.dticnat.controleimpressao.service.CopyService;
@@ -191,6 +191,53 @@ public class SolicitationController {
     }
 
     /**
+     * Cria uma nova solicitação com os dados fornecidos e os arquivos anexados.
+     *
+     * @param solicitationDTO Objeto RequestDTO contendo os dados da nova solicitação.
+     * @param files   Lista de arquivos a serem anexados à solicitação.
+     * @return Nova solicitação criada ou mensagem de erro.
+     */
+    @Operation(summary = "Cria uma nova solicitação")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Solicitação criada com sucesso",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = Solicitation.class))),
+            @ApiResponse(responseCode = "400", description = "Número de arquivos enviados foi insuficiente.",
+                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "O número de arquivos enviados (2) não corresponde ao número de cópias a carregar (3)."))),
+            @ApiResponse(responseCode = "403", description = "Não é possível alterar o status de uma solicitação que foi arquivada.",
+                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Não é possível alterar solicitações arquivadas."))),
+            @ApiResponse(responseCode = "500", description = "Erro interno ao processar a solicitação ou arquivos",
+                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Erro inesperado ao processar solicitação.")))
+    })
+    @PostMapping(consumes = {"multipart/form-data"})
+    public ResponseEntity<?> createRequest(HttpServletRequest httpRequest,
+                                           @Parameter(description = "Dados da solicitação a ser criada") @Valid @RequestPart("solicitacao") SolicitationDTO solicitationDTO,
+                                           @Parameter(description = "Lista de arquivos associados a solicitação") @RequestPart(value = "arquivos", required = false) List<MultipartFile> files) {
+
+        // Recuperar dados do usuário autenticado do request http
+        User user = (User) httpRequest.getAttribute("userPrincipal");
+
+        // Criar nova a solicitação no banco de dados
+        Solicitation newSolicitation = solicitationService.create(solicitationDTO, user);
+
+        // Salvar os arquivos em disco
+        // Se um arquivo da solicitação dá erro, os demais salvos anteriormente devem ser excluídos
+        try {
+            solicitationService.saveFiles(newSolicitation, files, true);
+            return ResponseEntity.status(HttpStatus.CREATED).body(newSolicitation);
+        } catch (BadRequestException e) {
+            solicitationService.removeRequest(newSolicitation.getId());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .body(e.getMessage());
+        } catch (Exception e) {
+            solicitationService.removeRequest(newSolicitation.getId());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .body("Erro inesperado ao processar solicitação.");
+        }
+    }
+
+    /**
      * Atualiza parcialmente uma solicitação existente, permitindo a modificação de dados e a adição/substituição de arquivos.
      *
      * @param solicitationId   ID da solicitação a ser atualizada.
@@ -271,53 +318,6 @@ public class SolicitationController {
     }
 
     /**
-     * Cria uma nova solicitação com os dados fornecidos e os arquivos anexados.
-     *
-     * @param solicitationDTO Objeto RequestDTO contendo os dados da nova solicitação.
-     * @param files   Lista de arquivos a serem anexados à solicitação.
-     * @return Nova solicitação criada ou mensagem de erro.
-     */
-    @Operation(summary = "Cria uma nova solicitação")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Solicitação criada com sucesso",
-                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = Solicitation.class))),
-            @ApiResponse(responseCode = "400", description = "Número de arquivos enviados foi insuficiente.",
-                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "O número de arquivos enviados (2) não corresponde ao número de cópias a carregar (3)."))),
-            @ApiResponse(responseCode = "403", description = "Não é possível alterar o status de uma solicitação que foi arquivada.",
-                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Não é possível alterar solicitações arquivadas."))),
-            @ApiResponse(responseCode = "500", description = "Erro interno ao processar a solicitação ou arquivos",
-                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Erro inesperado ao processar solicitação.")))
-    })
-    @PostMapping(consumes = {"multipart/form-data"})
-    public ResponseEntity<?> createRequest(HttpServletRequest httpRequest,
-                                           @Parameter(description = "Dados da solicitação a ser criada") @Valid @RequestPart("solicitacao") SolicitationDTO solicitationDTO,
-                                           @Parameter(description = "Lista de arquivos associados a solicitação") @RequestPart(value = "arquivos", required = false) List<MultipartFile> files) {
-
-        // Recuperar dados do usuário autenticado do request http
-        User user = (User) httpRequest.getAttribute("userPrincipal");
-
-        // Criar nova a solicitação no banco de dados
-        Solicitation newSolicitation = solicitationService.create(solicitationDTO, user);
-
-        // Salvar os arquivos em disco
-        // Se um arquivo da solicitação dá erro, os demais salvos anteriormente devem ser excluídos
-        try {
-            solicitationService.saveFiles(newSolicitation, files, true);
-            return ResponseEntity.status(HttpStatus.CREATED).body(newSolicitation);
-        } catch (BadRequestException e) {
-            solicitationService.removeRequest(newSolicitation.getId());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .contentType(MediaType.TEXT_PLAIN)
-                    .body(e.getMessage());
-        } catch (Exception e) {
-            solicitationService.removeRequest(newSolicitation.getId());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .contentType(MediaType.TEXT_PLAIN)
-                    .body("Erro inesperado ao processar solicitação.");
-        }
-    }
-
-    /**
      * Altera o status de conclusão de uma solicitação para concluída ou não concluída.
      *
      * @param solicitationId ID da solicitação a ter o status atualizado.
@@ -347,7 +347,7 @@ public class SolicitationController {
             Solicitation solicitation = solicitationService.canInteract(solicitationId, user, true);
 
             // Alterna status da solicitação
-            solicitationService.toggleConclusionDate(solicitation);
+            solicitationService.toggleConclusionDate(solicitation, user);
             return ResponseEntity.ok("Status da solicitação atualizado com sucesso.");
 
         } catch (EntityNotFoundException e) {
@@ -362,6 +362,55 @@ public class SolicitationController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .contentType(MediaType.TEXT_PLAIN)
                     .body("Não é possível alterar solicitações arquivadas.");
+        }
+    }
+
+    /**
+     * Adiciona um novo comentário a uma solicitação.
+     *
+     * @param comment Objeto contendo as informações do comentário a ser adicionado.
+     * @return Mensagem de sucesso ou erro.
+     */
+    @Operation(summary = "Adiciona um novo comentário a uma solicitação")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Comentário adicionado com sucesso.",
+                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Comentário adicionado com sucesso."))),
+            @ApiResponse(responseCode = "401", description = "Não autorizado. A solicitação não pertence ao usuário ou o usuário não tem permissão para interagir.",
+                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Usuário não autorizado a acessar esta solicitação."))),
+            @ApiResponse(responseCode = "403", description = "Não é possível adicionar comentários a uma solicitação que foi arquivada.",
+                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Não é possível adicionar comentários a solicitações arquivadas."))),
+            @ApiResponse(responseCode = "404", description = "Solicitação não encontrada.",
+                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Solicitação (ID 000123) não encontrada."))),
+    })
+    @PatchMapping("/{solicitationId}/comentario")
+    public ResponseEntity<?> toggleRequestStatus(HttpServletRequest httpRequest,
+                                                 @Parameter(description = "ID da solicitação.") @PathVariable Long solicitationId,
+                                                 @Parameter(description = "Objeto de comentário da solicitação.") @RequestBody @Valid CommentDTO comment) {
+
+        // Recuperar dados do usuário autenticado do request http
+        User user = (User) httpRequest.getAttribute("userPrincipal");
+
+        try {
+            // Verificar se solicitação sendo alterada pertence ao usuário tentando editá-la
+            // Se o usuario for admin, ele pode editar mesmo solicitações que não são dele
+            Solicitation solicitation = solicitationService.canInteract(solicitationId, user, true);
+
+            // Adiciona novo comentário à solicitação
+            solicitationService.addNewComment(comment, solicitation, user);
+            return ResponseEntity.ok("Comentário adicionado com sucesso.");
+
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .body("Solicitação (ID " + String.format("%06d", solicitationId) + ") não encontrada.");
+        } catch (UnauthorizedException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .body("Usuário não autorizado a acessar esta solicitação.");
+        } catch (ForbiddenException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .body("Não é possível adicionar comentários a solicitações arquivadas.");
         }
     }
 

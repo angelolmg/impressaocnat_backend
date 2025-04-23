@@ -8,11 +8,13 @@ import com.dticnat.controleimpressao.model.Copy;
 import com.dticnat.controleimpressao.model.Event;
 import com.dticnat.controleimpressao.model.Solicitation;
 import com.dticnat.controleimpressao.model.User;
+import com.dticnat.controleimpressao.model.dto.CommentDTO;
 import com.dticnat.controleimpressao.model.dto.SolicitationDTO;
 import com.dticnat.controleimpressao.model.enums.EventType;
 import com.dticnat.controleimpressao.repository.SolicitationRepository;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.criteria.*;
+import jakarta.validation.Valid;
 import org.apache.coyote.BadRequestException;
 import org.apache.tomcat.util.http.fileupload.FileUtils;
 import org.slf4j.Logger;
@@ -168,17 +170,22 @@ public class SolicitationService {
      * @throws EntityNotFoundException Se a solicitação com o ID especificado não for encontrada.
      * @throws ForbiddenException Se a solicitação estiver arquivada (stale), impedindo a alteração do status.
      */
-    public void toggleConclusionDate(Solicitation solicitation) throws EntityNotFoundException, ForbiddenException {
+    public void toggleConclusionDate(Solicitation solicitation, User user) throws ForbiddenException {
         // Não atualize o status de solicitações obsoletas/arquivadas
         if (solicitation.isArchived()) throw new ForbiddenException();
 
-        // Se a data de conclusão for maior que zero, define como zero (pendente),
-        // caso contrário, define como a data atual (concluída).
-        solicitation.setConclusionDate(
-                solicitation.getConclusionDate() == null ?
-                        LocalDateTime.now() :
-                        null
-        );
+        // Se estiver aberto, feche (null). Se estiver fechado (null), abra.
+        LocalDateTime newConclusionDate = solicitation.getConclusionDate() == null ? LocalDateTime.now() : null;
+        EventType eventType = newConclusionDate != null ? EventType.REQUEST_CLOSING : EventType.REQUEST_OPENING;
+
+        // Adicionar evento de toggle à timeline
+        solicitation.setConclusionDate(newConclusionDate);
+        solicitation.getTimeline().add(Event.builder()
+                .solicitationId(solicitation.getId())
+                .user(user)
+                .type(eventType)
+                .creationDate(LocalDateTime.now())
+                .build());
 
         solicitationRepository.save(solicitation);
     }
@@ -209,7 +216,6 @@ public class SolicitationService {
         // Cria e associa evento inicial de criação à linha do tempo
         Event creationEvent = Event
                 .builder()
-                .solicitation(newSolicitation)
                 .user(user)
                 .type(EventType.REQUEST_OPENING)
                 .creationDate(LocalDateTime.now())
@@ -246,7 +252,7 @@ public class SolicitationService {
         solicitation.getTimeline().add(
                 Event
                         .builder()
-                        .solicitation(newSolicitation)
+                        .solicitationId(newSolicitation.getId())
                         .user(user)
                         .type(EventType.REQUEST_EDITING)
                         .creationDate(LocalDateTime.now())
@@ -470,6 +476,14 @@ public class SolicitationService {
 
                 // Atualizar status de obsolência da solicitação
                 solicitation.setArchived(true);
+
+                // Adicionar evento de arquivamento à timeline
+                solicitation.getTimeline().add(Event.builder()
+                        .solicitationId(solicitation.getId())
+                        .type(EventType.REQUEST_ARCHIVING)
+                        .creationDate(LocalDateTime.now())
+                        .build());
+
                 solicitationRepository.save(solicitation);
 
                 deletedTotal.addAndGet(numDeleted);
@@ -477,6 +491,19 @@ public class SolicitationService {
         });
 
         return deletedTotal.get();
+    }
+
+    public void addNewComment(@Valid CommentDTO comment, Solicitation solicitation, User user) {
+        // Adicionar evento de comentario à timeline
+        solicitation.getTimeline().add(Event.builder()
+                .solicitationId(solicitation.getId())
+                .user(user)
+                .type(EventType.COMMENT)
+                .content(comment.getMessage())
+                .creationDate(LocalDateTime.now())
+                .build());
+
+        solicitationRepository.save(solicitation);
     }
 
 // ============================================================= //
