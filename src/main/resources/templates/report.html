@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <title>Relatório de Solicitações</title>
   <style>
-    /* Adicionar estilo para a tabela */
     table {
         width: 100%;
         border-collapse: collapse;
@@ -44,11 +43,11 @@
   <tbody>
   <tr th:each="solicitation : ${solicitations}">
     <td th:text="${solicitation.id}"></td>
-    <td th:text="${solicitation.username}"></td>
-    <td th:text="${solicitation.registration}"></td>
-    <td th:text="${#dates.format(solicitation.creationDate, 'dd/MM/yyyy HH:mm:ss')}"></td>
-    <td th:text="${solicitation.term / (60 * 60)}"></td>
-    <td th:text="${solicitation.conclusionDate > 0 ? #dates.format(solicitation.conclusionDate, 'dd/MM/yyyy HH:mm:ss') : '-'}"></td>
+    <td th:text="${solicitation.user.commonName}"></td>
+    <td th:text="${solicitation.user.registrationNumber}"></td>
+    <td th:text="${#temporals.format(solicitation.creationDate, 'dd/MM/yyyy HH:mm:ss')}"></td>
+    <td th:text="${solicitation.deadline}"></td>
+    <td th:text="${solicitation.conclusionDate != null ? #temporals.format(solicitation.conclusionDate, 'dd/MM/yyyy HH:mm:ss') : '-'}"></td>
     <td>
       <table>
         <thead>

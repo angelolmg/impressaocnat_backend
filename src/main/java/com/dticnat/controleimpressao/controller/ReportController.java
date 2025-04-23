@@ -46,7 +46,7 @@ public class ReportController {
         model.addAttribute("reportGenerationDate", reportGenerationDate);
         model.addAttribute("totalPageCount", totalPageCount);
         model.addAttribute("totalRequests", solicitations.size());  // Nova variável
-        model.addAttribute("requests", solicitations);
+        model.addAttribute("solicitations", solicitations);
 
         return "report"; // Renderiza o template Thymeleaf com as informações
     }
