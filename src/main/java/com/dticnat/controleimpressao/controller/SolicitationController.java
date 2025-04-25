@@ -267,7 +267,7 @@ public class SolicitationController {
                     content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Erro inesperado ao processar solicitação.")))
     })
     @PatchMapping(value = "/{solicitationId}", consumes = {"multipart/form-data"})
-    public ResponseEntity<?> patchRequest(HttpServletRequest httpRequest,
+    public ResponseEntity<?> patchSolicitation(HttpServletRequest httpRequest,
             @Parameter(description = "ID da solicitação") @PathVariable Long solicitationId,
             @Parameter(description = "Dados da solicitação a serem atualizados")
                                               @RequestPart("solicitacao") @Valid Solicitation solicitation,

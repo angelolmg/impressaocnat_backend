@@ -80,29 +80,29 @@ public class CopyService {
      * Retorna uma lista de cópias de arquivos associadas a um ID de solicitação,
      * permitindo filtrar por um termo de pesquisa no nome do arquivo.
      *
-     * @param solicitation A solicitação para a qual buscar as cópias.
+     * @param solicitationId A solicitação para a qual buscar as cópias.
      * @param query     Termo de pesquisa para filtrar pelo nome do arquivo (opcional).
      * @return Lista de objetos Copy correspondentes aos critérios de busca.
      */
-    public List<Copy> findAllBySolicitation(Solicitation solicitation, String query) {
-        Specification<Copy> spec = filterCopies(solicitation, query);
+    public List<Copy> findAllBySolicitationId(Long solicitationId, String query) {
+        Specification<Copy> spec = filterCopies(solicitationId, query);
         return copyRepository.findAll(spec, Sort.by(Sort.Direction.ASC, "id"));
     }
 
     /**
      * Cria uma especificação JPA para filtrar cópias por Solicitation e nome de arquivo.
      *
-     * @param solicitation A Solicitation para filtrar as cópias.
+     * @param solicitationId A Solicitation para filtrar as cópias.
      * @param userQuery Termo de pesquisa para filtrar pelo nome do arquivo (opcional).
      * @return Uma Specification JPA para a consulta.
      */
-    public Specification<Copy> filterCopies(Solicitation solicitation, String userQuery) {
+    public Specification<Copy> filterCopies(Long solicitationId, String userQuery) {
         return (Root<Copy> root, CriteriaQuery<?> query, CriteriaBuilder cb) -> {
             Predicate predicate = cb.conjunction();
 
             // Filtrar por Solicitation
-            if (solicitation != null) {
-                predicate = cb.and(predicate, cb.equal(root.get("solicitation"), solicitation));
+            if (solicitationId != null) {
+                predicate = cb.and(predicate, cb.equal(root.get("solicitationId"), solicitationId));
             }
 
             // Filtrar por query de texto no nome do arquivo (case-insensitive e busca parcial)

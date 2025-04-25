@@ -97,11 +97,11 @@ public class SolicitationService {
      * @param startDate        Timestamp (Unix time) da data de início para filtrar por período (opcional).
      * @param endDate          Timestamp (Unix time) da data de término para filtrar por período (opcional).
      * @param userQuery        Termo de pesquisa para filtrar por texto em nome do solicitante, matrícula ou ID da solicitação (opcional).
-     * @param is_concluded     Booleano para filtrar solicitações concluídas (true) ou pendentes (false) (opcional).
+     * @param isConcluded     Booleano para filtrar solicitações concluídas (true) ou pendentes (false) (opcional).
      * @param userRegistration Registro do usuário para filtrar solicitações por usuário (opcional).
      * @return Uma Specification JPA que pode ser usada para filtrar solicitações.
      */
-    public Specification<Solicitation> filterRequests(LocalDateTime startDate, LocalDateTime endDate, String userQuery, Boolean is_concluded, String userRegistration) {
+    public Specification<Solicitation> filterRequests(LocalDateTime startDate, LocalDateTime endDate, String userQuery, Boolean isConcluded, String userRegistration) {
         return (Root<Solicitation> root, CriteriaQuery<?> query, CriteriaBuilder cb) -> {
             Predicate predicate = cb.conjunction();
 
@@ -113,15 +113,15 @@ public class SolicitationService {
             }
 
             if (endDate != null) {
-                // Adicionamos 86400000 (unixtime em ms para 1 dia) para incluir solicitações deste dia também
+                // Adicionamos 1 dia para incluir solicitações deste dia também
                 predicate = cb.and(predicate, cb.lessThanOrEqualTo(root.get("creationDate"), endDate.plusDays(1)));
             }
 
             // Filtragem por status de conclusão
-            if (is_concluded != null) {
+            if (isConcluded != null) {
                 // Filtrar entre apenas concluidos ou não concluídos
                 // Se 'is_concluded' == null, significa que tudo será retornado
-                if (is_concluded) predicate = cb.and(predicate, cb.isNotNull(root.get("conclusionDate")));
+                if (isConcluded) predicate = cb.and(predicate, cb.isNotNull(root.get("conclusionDate")));
                 else predicate = cb.and(predicate, cb.isNull(root.get("conclusionDate")));
             }
 
@@ -136,19 +136,19 @@ public class SolicitationService {
             if (userQuery != null && !userQuery.isEmpty()) {
                 String trimmedQuery = userQuery.trim();
                 // Testar se query é nome do solicitante
-                queryPredicate = cb.or(queryPredicate, cb.like(cb.lower(cb.trim(root.get("user").get("commonName"))), "%" + trimmedQuery.toLowerCase() + "%"));
+                queryPredicate = cb.like(cb.lower(cb.trim(root.get("user").get("commonName"))), "%" + trimmedQuery.toLowerCase() + "%");
 
                 // Testar se query é matrícula
                 queryPredicate = cb.or(queryPredicate, cb.like(cb.trim(root.get("user").get("registrationNumber")), "%" + trimmedQuery + "%"));
 
                 try {
                     // Testar se query é o ID da solicitação
-                    long userId = Long.parseLong(userQuery);
-                    queryPredicate = cb.or(queryPredicate, cb.equal(root.get("id"), userId));
+                    long solicitationId = Long.parseLong(userQuery);
+                    queryPredicate = cb.or(queryPredicate, cb.equal(root.get("id"), solicitationId));
 
                     // Testar se query é o prazo da solicitação (em horas)
-                    int userTerm = Integer.parseInt(userQuery);
-                    queryPredicate = cb.or(queryPredicate, cb.equal(root.get("deadline"), userTerm));
+                    int solicitationDeadline = Integer.parseInt(userQuery);
+                    queryPredicate = cb.or(queryPredicate, cb.equal(root.get("deadline"), solicitationDeadline));
 
                 } catch (NumberFormatException ex) {
                     logger.debug("Não foi possível converter query para inteiro: {}", userQuery);
@@ -466,7 +466,7 @@ public class SolicitationService {
                     solicitation.getConclusionDate().plusHours(CLEANUP_RATE_HOURS).isBefore(now)) {
 
                 // Busca todas as cópias associadas à solicitação
-                List<Copy> copies = copyService.findAllBySolicitation(solicitation, "");
+                List<Copy> copies = copyService.findAllBySolicitationId(solicitation.getId(), "");
                 // Define o caminho da pasta da solicitação
                 String requestPath = BASE_DIR + solicitation.getUser().getRegistrationNumber() + '/' + solicitation.getId();
 

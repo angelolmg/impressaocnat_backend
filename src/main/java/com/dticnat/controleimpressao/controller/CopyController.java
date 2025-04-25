@@ -72,8 +72,8 @@ public class CopyController {
         try {
             // Verificar se solicitação sendo alterada pertence ao usuário tentando editá-la
             // Se o usuario for admin, ele pode editar mesmo solicitações que não são dele
-            Solicitation solicitation = solicitationService.canInteract(solicitationId, user, false);
-            List<Copy> copies = copyService.findAllBySolicitation(solicitation, query);
+            solicitationService.canInteract(solicitationId, user, false);
+            List<Copy> copies = copyService.findAllBySolicitationId(solicitationId, query);
             return ResponseEntity.ok(copies);
 
         } catch (EntityNotFoundException e) {
