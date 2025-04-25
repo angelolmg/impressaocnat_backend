@@ -40,8 +40,8 @@ public class UserController {
             @ApiResponse(responseCode = "403", description = "Não autorizado.",
                     content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Você não tem permissão para verificar o status de administrador de outros usuários.")))
     })
-    @GetMapping("/admin")
-    public ResponseEntity<?> isAdmin(
+    @GetMapping("/papel")
+    public ResponseEntity<?> getRole(
             HttpServletRequest httpRequest,
             @Parameter(description = "Matrícula do usuário a ser verificada.", required = true, example = "123456")
             @RequestParam("registration") String registration) {
@@ -51,10 +51,10 @@ public class UserController {
 
         // Usuário só pode conferir o próprio status de admin
         if(registration.equals(user.getRegistrationNumber())) {
-            return ResponseEntity.ok(user.isAdmin());
+            return ResponseEntity.ok(user.getRole());
         // OU o status de outros usuários caso ele mesmo seja admin
-        } else if (user.isAdmin()) {
-            return ResponseEntity.ok(user.isAdmin());
+        } else if (user.isAdminOrManager()) {
+            return ResponseEntity.ok(authService.getRole(registration));
         } else {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .contentType(MediaType.TEXT_PLAIN)

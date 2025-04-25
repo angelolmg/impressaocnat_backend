@@ -24,6 +24,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.apache.coyote.BadRequestException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -32,6 +33,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.FileNotFoundException;
 import java.nio.file.NoSuchFileException;
+import java.time.LocalDateTime;
 import java.util.*;
 
 @RestController
@@ -61,16 +63,20 @@ public class SolicitationController {
     @Operation(summary = "Lista todas as solicitações")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200",
-                            description = "Lista de solicitações retornada com sucesso",
+                            description = "Lista de solicitações retornada com sucesso.",
                             content = @Content(mediaType = "application/json",
                             array = @ArraySchema(schema = @Schema(implementation = Solicitation.class))))
     })
     @GetMapping
-    public ResponseEntity<?> getAllRequests(HttpServletRequest httpRequest,
+    public ResponseEntity<?> getAllSolicitations(HttpServletRequest httpRequest,
                                             @Parameter(description = "Indica se a filtragem por usuário deve ser aplicada (opcional).") @RequestParam(value = "filtering", required = false) Boolean filtering,
                                             @Parameter(description = "Indica se as solicitações concluídas devem ser filtradas (opcional).") @RequestParam(value = "concluded", required = false) Boolean concluded,
-                                            @Parameter(description = "Data de início (unix time) para filtragem por data (opcional).") @RequestParam(value = "startDate", required = false) Long startDate,
-                                            @Parameter(description = "Data de término (unix time) para filtragem por data (opcional).") @RequestParam(value = "endDate", required = false) Long endDate,
+                                            @Parameter(description = "Data de início para filtragem por data (opcional).")
+                                                     @RequestParam(value = "startDate", required = false)
+                                                     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+                                            @Parameter(description = "Data de término para filtragem por data (opcional).")
+                                                     @RequestParam(value = "endDate", required = false)
+                                                     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
                                             @Parameter(description = "Termo de pesquisa para filtragem por texto (opcional).") @RequestParam(value = "query", required = false) String query) {
 
         // Recuperar dados do usuário autenticado do request http
@@ -117,7 +123,7 @@ public class SolicitationController {
         } catch (EntityNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .contentType(MediaType.TEXT_PLAIN)
-                    .body("Solicitação com ID " + solicitationId + " não encontrada.");
+                    .body("Solicitação (ID " + String.format("%06d", solicitationId) + ") não encontrada.");
         } catch (UnauthorizedException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .contentType(MediaType.TEXT_PLAIN)
@@ -128,7 +134,7 @@ public class SolicitationController {
     /**
      * Busca e baixa um arquivo associado a uma solicitação.
      *
-     * @param id        ID da solicitação.
+     * @param solicitationId        ID da solicitação.
      * @param fileName  Nome do arquivo.
      * @return Arquivo para download ou mensagem de erro.
      */
@@ -145,9 +151,9 @@ public class SolicitationController {
             @ApiResponse(responseCode = "500", description = "Erro interno ao processar o arquivo (IOException, OutOfMemoryError, SecurityException, etc).",
                     content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Erro ao ler o arquivo do sistema.")))
     })
-    @GetMapping("/{id}/{fileName}")
+    @GetMapping("/{solicitationId}/{fileName}")
     public ResponseEntity<?> downloadFile(HttpServletRequest httpRequest,
-                                          @Parameter(description = "ID da solicitação.") @PathVariable Long id,
+                                          @Parameter(description = "ID da solicitação.") @PathVariable Long solicitationId,
                                           @Parameter(description = "Nome do arquivo a ser baixado.") @PathVariable String fileName) {
 
         // Recuperar dados do usuário autenticado do request http
@@ -155,14 +161,14 @@ public class SolicitationController {
 
         try {
             // Chama o serviço para realizar a lógica de validação e busca do arquivo
-            return solicitationService.getFileResponse(user, id, fileName);
+            return solicitationService.getFileResponse(user, solicitationId, fileName);
 
             // A operação de buscar um arquivo em disco pode gerar diversas exceções diferentes
             // Aqui foi bastante glanularizado para buscar retornar a mensagem de erro mais apropriada
         } catch (EntityNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .contentType(MediaType.TEXT_PLAIN)
-                    .body(String.format("Solicitação com ID: %d não encontrada.", id));
+                    .body("Solicitação (ID " + String.format("%06d", solicitationId) + ") não encontrada.");
         } catch (FileNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .contentType(MediaType.TEXT_PLAIN)
@@ -297,7 +303,7 @@ public class SolicitationController {
         } catch (EntityNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .contentType(MediaType.TEXT_PLAIN)
-                    .body("Solicitação com ID " + solicitationId + " não encontrada.");
+                    .body("Solicitação (ID " + String.format("%06d", solicitationId) + ") não encontrada.");
         } catch (UnauthorizedException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .contentType(MediaType.TEXT_PLAIN)

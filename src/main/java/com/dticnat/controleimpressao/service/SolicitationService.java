@@ -11,6 +11,7 @@ import com.dticnat.controleimpressao.model.User;
 import com.dticnat.controleimpressao.model.dto.CommentDTO;
 import com.dticnat.controleimpressao.model.dto.SolicitationDTO;
 import com.dticnat.controleimpressao.model.enums.EventType;
+import com.dticnat.controleimpressao.model.enums.Role;
 import com.dticnat.controleimpressao.repository.SolicitationRepository;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.criteria.*;
@@ -71,7 +72,7 @@ public class SolicitationService {
      * @param userRegistration Registro do usuário para filtrar solicitações por usuário (opcional).
      * @return Uma lista de solicitações que correspondem aos critérios de filtragem, ordenadas por ID em ordem ascendente.
      */
-    public List<Solicitation> findAll(Long startDate, Long endDate, String query, Boolean is_concluded, String userRegistration) {
+    public List<Solicitation> findAll(LocalDateTime startDate, LocalDateTime endDate, String query, Boolean is_concluded, String userRegistration) {
         Specification<Solicitation> spec = filterRequests(startDate, endDate, query, is_concluded, userRegistration);
         return solicitationRepository.findAll(spec, Sort.by(Sort.Direction.ASC, "id"));
     }
@@ -100,11 +101,10 @@ public class SolicitationService {
      * @param userRegistration Registro do usuário para filtrar solicitações por usuário (opcional).
      * @return Uma Specification JPA que pode ser usada para filtrar solicitações.
      */
-    public Specification<Solicitation> filterRequests(Long startDate, Long endDate, String userQuery, Boolean is_concluded, String userRegistration) {
+    public Specification<Solicitation> filterRequests(LocalDateTime startDate, LocalDateTime endDate, String userQuery, Boolean is_concluded, String userRegistration) {
         return (Root<Solicitation> root, CriteriaQuery<?> query, CriteriaBuilder cb) -> {
             Predicate predicate = cb.conjunction();
 
-            // TODO: converter para lógica utilizando LocalDateTime
             // Filtragem por data de criação
             // Neste caso 'creationDate' pode estar entre 'startDate' e ('endDate' + 1 dia)
             // 'startDate' e 'endDate' são o timestamp do **início** dos seus respectivos dias
@@ -114,20 +114,20 @@ public class SolicitationService {
 
             if (endDate != null) {
                 // Adicionamos 86400000 (unixtime em ms para 1 dia) para incluir solicitações deste dia também
-                predicate = cb.and(predicate, cb.lessThanOrEqualTo(root.get("creationDate"), endDate + 86400000));
+                predicate = cb.and(predicate, cb.lessThanOrEqualTo(root.get("creationDate"), endDate.plusDays(1)));
             }
 
             // Filtragem por status de conclusão
             if (is_concluded != null) {
                 // Filtrar entre apenas concluidos ou não concluídos
                 // Se 'is_concluded' == null, significa que tudo será retornado
-                if (is_concluded) predicate = cb.and(predicate, cb.greaterThan(root.get("conclusionDate"), 0));
-                else predicate = cb.and(predicate, cb.equal(root.get("conclusionDate"), 0));
+                if (is_concluded) predicate = cb.and(predicate, cb.isNotNull(root.get("conclusionDate")));
+                else predicate = cb.and(predicate, cb.isNull(root.get("conclusionDate")));
             }
 
             // Filtragem por matrícula do solicitante
             if (userRegistration != null) {
-                predicate = cb.and(predicate, cb.equal(root.get("registration"), userRegistration));
+                predicate = cb.and(predicate, cb.equal(root.get("user").get("registrationNumber"), userRegistration));
             }
 
             Predicate queryPredicate = cb.conjunction();
@@ -136,10 +136,10 @@ public class SolicitationService {
             if (userQuery != null && !userQuery.isEmpty()) {
                 String trimmedQuery = userQuery.trim();
                 // Testar se query é nome do solicitante
-                queryPredicate = cb.or(queryPredicate, cb.like(cb.lower(cb.trim(root.get("username"))), "%" + trimmedQuery.toLowerCase() + "%"));
+                queryPredicate = cb.or(queryPredicate, cb.like(cb.lower(cb.trim(root.get("user").get("commonName"))), "%" + trimmedQuery.toLowerCase() + "%"));
 
                 // Testar se query é matrícula
-                queryPredicate = cb.or(queryPredicate, cb.like(cb.trim(root.get("registration")), "%" + trimmedQuery + "%"));
+                queryPredicate = cb.or(queryPredicate, cb.like(cb.trim(root.get("user").get("registrationNumber")), "%" + trimmedQuery + "%"));
 
                 try {
                     // Testar se query é o ID da solicitação
@@ -147,8 +147,8 @@ public class SolicitationService {
                     queryPredicate = cb.or(queryPredicate, cb.equal(root.get("id"), userId));
 
                     // Testar se query é o prazo da solicitação (em horas)
-                    int userTerm = Integer.parseInt(userQuery) * 60 * 60;
-                    queryPredicate = cb.or(queryPredicate, cb.equal(root.get("term"), userTerm));
+                    int userTerm = Integer.parseInt(userQuery);
+                    queryPredicate = cb.or(queryPredicate, cb.equal(root.get("deadline"), userTerm));
 
                 } catch (NumberFormatException ex) {
                     logger.debug("Não foi possível converter query para inteiro: {}", userQuery);
@@ -480,6 +480,9 @@ public class SolicitationService {
                 // Adicionar evento de arquivamento à timeline
                 solicitation.getTimeline().add(Event.builder()
                         .solicitationId(solicitation.getId())
+                        .user(User.builder()
+                                .role(Role.SYSTEM)
+                                .build())
                         .type(EventType.REQUEST_ARCHIVING)
                         .creationDate(LocalDateTime.now())
                         .build());

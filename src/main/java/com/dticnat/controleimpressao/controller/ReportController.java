@@ -1,6 +1,7 @@
 package com.dticnat.controleimpressao.controller;
 
 import com.dticnat.controleimpressao.model.Solicitation;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.stereotype.Controller;
@@ -31,6 +32,7 @@ public class ReportController {
      * @param model    O modelo Spring para passar dados para a view (Thymeleaf).
      * @return O nome do template Thymeleaf a ser renderizado ("report").
      */
+    @Operation(summary = "Gera um relatório a partir das solicitações enviadas")
     @PostMapping
     public String generateReport(@RequestBody @Valid List<Solicitation> solicitations, Model model) {
         // Calcular a data de geração do relatório

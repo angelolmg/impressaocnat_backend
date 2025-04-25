@@ -76,8 +76,9 @@ public class Solicitation {
      * As cópias são carregadas e persistidas em cascata com a solicitação.
      * A ordem das cópias é mantida pelo ID em ordem ascendente.
      */
-    @OneToMany(mappedBy = "solicitation", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @NotEmpty(message = "Deve haver pelo menos uma cópia na solicitação.")
+    @JoinColumn(name = "solicitation_id", referencedColumnName = "id")
     @OrderBy("id ASC")
     private List<Copy> copies;
 

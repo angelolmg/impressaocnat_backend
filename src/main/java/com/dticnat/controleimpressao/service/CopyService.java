@@ -51,7 +51,7 @@ public class CopyService {
 
         return Copy
                 .builder()
-                .solicitation(solicitation)
+                .solicitationId(solicitation.getId())
                 .fileName(copyDTO.getFileName())
                 .fileType(copyDTO.getFileType())
                 .pageCount(copyDTO.getPageCount())
