@@ -52,11 +52,11 @@ public class Solicitation {
 
     /**
      * Indica se a solicitação é considerada obsoleta/arquivada.
-     * Solicitações obsoletas são aquelas que foram fechadas (possuem `conclusionDate` > 0)
+     * Solicitações obsoletas são aquelas fechadas (possuem `conclusionDate` > 0)
      * há mais tempo do que o definido pela variável de ambiente `FILE_CLEANUP_FR` (em horas).
      * Depois deste tempo, arquivos digitais associados são deletados do servidor
-     * e esta flag é definida como 'true'.
-     * Por padrão, é definido como `false`.
+     * e esta ‘flag’ é definida como 'true'.
+     * Por padrão, é definido como 'false'.
      */
     @Builder.Default
     private boolean archived = false;

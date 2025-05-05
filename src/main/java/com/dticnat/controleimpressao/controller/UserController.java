@@ -29,7 +29,7 @@ public class UserController {
      * Permite verificar se um usuário, identificado pela matrícula, possui o papel de administrador.
      * A verificação só é permitida se o usuário autenticado for ele mesmo ou um administrador.
      *
-     * @param registration A matrícula do usuário a ser verificada.
+     * @param registrationNumber A matrícula do usuário a ser verificada.
      * @return ResponseEntity contendo um booleano indicando se o usuário é administrador (true) ou não (false),
      * ou um status 403 (Forbidden) se o usuário autenticado não tiver permissão para verificar.
      */
@@ -44,17 +44,17 @@ public class UserController {
     public ResponseEntity<?> getRole(
             HttpServletRequest httpRequest,
             @Parameter(description = "Matrícula do usuário a ser verificada.", required = true, example = "123456")
-            @RequestParam("registration") String registration) {
+            @RequestParam("registrationNumber") String registrationNumber) {
 
         // Recuperar dados do usuário autenticado do request http
         User user = (User) httpRequest.getAttribute("userPrincipal");
 
         // Usuário só pode conferir o próprio status de admin
-        if(registration.equals(user.getRegistrationNumber())) {
+        if(registrationNumber.equals(user.getRegistrationNumber())) {
             return ResponseEntity.ok(user.getRole());
         // OU o status de outros usuários caso ele mesmo seja admin
         } else if (user.isAdminOrManager()) {
-            return ResponseEntity.ok(authService.getRole(registration));
+            return ResponseEntity.ok(authService.getRole(registrationNumber));
         } else {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .contentType(MediaType.TEXT_PLAIN)

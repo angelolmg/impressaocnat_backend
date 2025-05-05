@@ -24,6 +24,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.apache.coyote.BadRequestException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -89,6 +90,43 @@ public class SolicitationController {
 
         // Buscar as solicitações filtradas
         List<Solicitation> solicitations = solicitationService.findAll(startDate, endDate, query, concluded, userRegistration);
+        return ResponseEntity.ok(solicitations);
+    }
+
+
+    @Operation(summary = "Busca uma página de solicitações")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200",
+                    description = "Página de solicitações retornada com sucesso.",
+                    content = @Content(mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = Solicitation.class))))
+    })
+    @GetMapping("/pagina")
+    public ResponseEntity<Page<Solicitation>> getPageSolicitations(HttpServletRequest httpRequest,
+                                                                   @Parameter(description = "Indica se a filtragem por usuário deve ser aplicada (opcional).") @RequestParam(value = "filtering", required = false) Boolean filtering,
+                                                                   @Parameter(description = "Indica se as solicitações concluídas devem ser filtradas (opcional).") @RequestParam(value = "concluded", required = false) Boolean concluded,
+                                                                   @Parameter(description = "Data de início para filtragem por data (opcional).")
+                                                 @RequestParam(value = "startDate", required = false)
+                                                 @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+                                                                   @Parameter(description = "Data de término para filtragem por data (opcional).")
+                                                 @RequestParam(value = "endDate", required = false)
+                                                 @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
+                                                                   @Parameter(description = "Termo de pesquisa para filtragem por texto (opcional).") @RequestParam(value = "query", required = false) String query,
+                                                                   @Parameter(description = "Coluna de ordenação (opcional).") @RequestParam(value = "sortingColumn", required = false) String sortingColumn,
+                                                                   @Parameter(description = "direção da ordenação (opcional).") @RequestParam(value = "sortingDirection", required = false) String sortingDirection,
+                                                                   @RequestParam(defaultValue = "0") int pageNo,
+                                                                   @RequestParam(defaultValue = "10") int pageSize) {
+
+        // Recuperar dados do usuário autenticado do request http
+        User user = (User) httpRequest.getAttribute("userPrincipal");
+
+        // Se for admin retornaremos TODAS as solicitações, não passamos filtro de matrícula
+        // Se não for, passamos a matrícula como filtro
+        // A não ser que o admin esteja filtrando seus resultados para receber apenas as próprias solicitações
+        String userRegistration = (!user.isAdminOrManager() || (filtering != null && filtering)) ? user.getRegistrationNumber() : null;
+
+        // Buscar as solicitações filtradas
+        Page<Solicitation> solicitations = solicitationService.findPage(startDate, endDate, query, concluded, userRegistration, pageNo, pageSize, sortingColumn, sortingDirection);
         return ResponseEntity.ok(solicitations);
     }
 

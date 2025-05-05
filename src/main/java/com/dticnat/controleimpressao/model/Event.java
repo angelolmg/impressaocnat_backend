@@ -1,7 +1,6 @@
 package com.dticnat.controleimpressao.model;
 
 import com.dticnat.controleimpressao.model.enums.EventType;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -24,6 +23,7 @@ public class Event {
     @Embedded
     private User user; // Usuário que criou
 
+    @Column(name = "content", length = 512)
     private String content; // Conteúdo
 
     @Enumerated(EnumType.STRING)

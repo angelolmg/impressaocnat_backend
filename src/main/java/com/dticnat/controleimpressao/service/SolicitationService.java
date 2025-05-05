@@ -23,6 +23,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.InputStreamResource;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpHeaders;
@@ -75,6 +78,32 @@ public class SolicitationService {
     public List<Solicitation> findAll(LocalDateTime startDate, LocalDateTime endDate, String query, Boolean is_concluded, String userRegistration) {
         Specification<Solicitation> spec = filterRequests(startDate, endDate, query, is_concluded, userRegistration);
         return solicitationRepository.findAll(spec, Sort.by(Sort.Direction.ASC, "id"));
+    }
+
+    public Page<Solicitation> findPage(LocalDateTime startDate, LocalDateTime endDate,
+                                       String query, Boolean is_concluded, String userRegistration,
+                                       int pageNo, int pageSize,
+                                       String sortingColumn, String sortingDirection) {
+        Sort sort = Sort.by(Sort.Direction.ASC, "id"); // Default sort
+
+        if (sortingColumn != null && !sortingColumn.isEmpty()) {
+            Sort.Direction direction = Sort.Direction.ASC;
+            if ("desc".equalsIgnoreCase(sortingDirection)) {
+                direction = Sort.Direction.DESC;
+            }
+
+            if (sortingColumn.equals("registrationNumber")) {
+                sort = Sort.by(direction, "user.registrationNumber");
+            } else if (sortingColumn.equals("commonName")) {
+                sort = Sort.by(direction, "user.commonName");
+            } else {
+                sort = Sort.by(direction, sortingColumn); // Sort by a direct field in Solicitation
+            }
+        }
+
+        Pageable pageable = PageRequest.of(pageNo, pageSize, sort);
+        Specification<Solicitation> spec = filterRequests(startDate, endDate, query, is_concluded, userRegistration);
+        return solicitationRepository.findAll(spec, pageable);
     }
 
     /**
