@@ -5,5 +5,6 @@ public enum EventType {
     REQUEST_OPENING, // abertura de solicitação
     REQUEST_CLOSING, // fechamento de solicitação
     REQUEST_ARCHIVING, // arquivamento de solicitação
-    REQUEST_EDITING // edição de solicitação
+    REQUEST_EDITING, // edição de solicitação
+    REQUEST_DELETING  // deleção da solicitação
 }

@@ -2,7 +2,6 @@ package com.dticnat.controleimpressao.controller;
 
 import com.dticnat.controleimpressao.exception.UnauthorizedException;
 import com.dticnat.controleimpressao.model.Copy;
-import com.dticnat.controleimpressao.model.Solicitation;
 import com.dticnat.controleimpressao.model.User;
 import com.dticnat.controleimpressao.service.AuthService;
 import com.dticnat.controleimpressao.service.CopyService;

@@ -491,7 +491,7 @@ public class SolicitationService {
             // Se a solicitação já é obsoleta, ignora.
             // Se a solicitação está fechada (conclusionDate != MIN) e o período de remoção já passou...
             if (!solicitation.isArchived() &&
-                    solicitation.getConclusionDate() != LocalDateTime.MIN &&
+                    solicitation.getConclusionDate() != null &&
                     solicitation.getConclusionDate().plusHours(CLEANUP_RATE_HOURS).isBefore(now)) {
 
                 // Busca todas as cópias associadas à solicitação
