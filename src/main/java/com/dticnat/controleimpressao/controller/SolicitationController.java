@@ -8,6 +8,7 @@ import com.dticnat.controleimpressao.model.Solicitation;
 import com.dticnat.controleimpressao.model.User;
 import com.dticnat.controleimpressao.model.dto.CommentDTO;
 import com.dticnat.controleimpressao.model.dto.SolicitationDTO;
+import com.dticnat.controleimpressao.model.enums.EventType;
 import com.dticnat.controleimpressao.service.AuthService;
 import com.dticnat.controleimpressao.service.CopyService;
 import com.dticnat.controleimpressao.service.SolicitationService;
@@ -155,7 +156,7 @@ public class SolicitationController {
         // Verificar se solicitação sendo alterada pertence ao usuário tentando buscá-la
         // Se o usuario for admin, ele pode editar mesmo solicitações que não são dele
         try {
-            Solicitation userSolicitation = solicitationService.canInteract(solicitationId, user, false);
+            Solicitation userSolicitation = solicitationService.canInteract(solicitationId, user, EventType.REQUEST_VIEWING);
             return ResponseEntity.ok(userSolicitation);
 
         } catch (EntityNotFoundException e) {
@@ -269,12 +270,12 @@ public class SolicitationController {
             solicitationService.saveFiles(newSolicitation, files, true);
             return ResponseEntity.status(HttpStatus.CREATED).body(newSolicitation);
         } catch (BadRequestException e) {
-            solicitationService.removeRequest(newSolicitation.getId());
+            solicitationService.removeRequest(newSolicitation.getId(), false, user);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .contentType(MediaType.TEXT_PLAIN)
                     .body(e.getMessage());
         } catch (Exception e) {
-            solicitationService.removeRequest(newSolicitation.getId());
+            solicitationService.removeRequest(newSolicitation.getId(), false, user);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .contentType(MediaType.TEXT_PLAIN)
                     .body("Erro inesperado ao processar solicitação.");
@@ -322,7 +323,7 @@ public class SolicitationController {
 
             // Verificar se solicitação sendo alterada pertence ao usuário tentando editá-la
             // Se o usuario for admin, ele pode editar mesmo solicitações que não são dele
-            solicitationService.canInteract(solicitationId, user, true);
+            solicitationService.canInteract(solicitationId, user, EventType.REQUEST_EDITING);
 
             // Caso não sejam enviados dados de arquivos digitais, inicializa-se um placeholder vazio
             if (files == null) files = new ArrayList<>();
@@ -388,7 +389,7 @@ public class SolicitationController {
         try {
             // Verificar se solicitação sendo alterada pertence ao usuário tentando editá-la
             // Se o usuario for admin, ele pode editar mesmo solicitações que não são dele
-            Solicitation solicitation = solicitationService.canInteract(solicitationId, user, true);
+            Solicitation solicitation = solicitationService.canInteract(solicitationId, user, EventType.REQUEST_EDITING);
 
             // Alterna status da solicitação
             solicitationService.toggleConclusionDate(solicitation, user);
@@ -437,7 +438,7 @@ public class SolicitationController {
         try {
             // Verificar se solicitação sendo alterada pertence ao usuário tentando editá-la
             // Se o usuario for admin, ele pode editar mesmo solicitações que não são dele
-            Solicitation solicitation = solicitationService.canInteract(solicitationId, user, true);
+            Solicitation solicitation = solicitationService.canInteract(solicitationId, user, EventType.REQUEST_EDITING);
 
             // Adiciona novo comentário à solicitação
             solicitationService.addNewComment(comment, solicitation, user);
@@ -477,17 +478,20 @@ public class SolicitationController {
     })
     @DeleteMapping("/{solicitationId}")
     public ResponseEntity<?> removeRequest(HttpServletRequest httpRequest,
-                                           @Parameter(description = "ID da solicitação") @PathVariable Long solicitationId) {
+                                           @Parameter(description = "ID da solicitação") @PathVariable Long solicitationId,
+                                           @Parameter(description = "Indica se usuários interessados devem ser notificados após deleção bem sucedida.")
+                                               @RequestParam(value = "sendNotification", required = false) Boolean sendNotification) {
         // Recuperar dados do usuário autenticado do request http
         User user = (User) httpRequest.getAttribute("userPrincipal");
 
         try {
             // Verificar se solicitação sendo alterada pertence ao usuário tentando editá-la
             // Se o usuario for admin, ele pode remover mesmo solicitações que não são dele
-            solicitationService.canInteract(solicitationId, user, true);
+            solicitationService.canInteract(solicitationId, user, EventType.REQUEST_DELETING);
 
             // Remove solicitação
-            solicitationService.removeRequest(solicitationId);
+            // Adicionalmente, envia notificação de deleção à usuarios interessados
+            solicitationService.removeRequest(solicitationId, sendNotification, user);
 
             return ResponseEntity.ok("Solicitação (ID " + String.format("%06d", solicitationId) + ") removida com sucesso.");
 

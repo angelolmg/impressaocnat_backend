@@ -3,6 +3,7 @@ package com.dticnat.controleimpressao.controller;
 import com.dticnat.controleimpressao.exception.UnauthorizedException;
 import com.dticnat.controleimpressao.model.Solicitation;
 import com.dticnat.controleimpressao.model.User;
+import com.dticnat.controleimpressao.model.enums.EventType;
 import com.dticnat.controleimpressao.service.EventService;
 import com.dticnat.controleimpressao.service.SolicitationService;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -26,7 +27,7 @@ public class EventController {
     @Autowired
     private EventService eventService;
 
-    @PostMapping("/notificar/{solicitationId}")
+    @GetMapping("/notificar/{solicitationId}")
     public ResponseEntity<?> notifyLastEvent(HttpServletRequest httpRequest,
                                                        @Parameter(description = "ID da solicitação da qual o último evento será notificado.") @PathVariable Long solicitationId) {
         // Recuperar dados do usuário
@@ -35,7 +36,7 @@ public class EventController {
         try {
             // Verificar se solicitação sendo alterada pertence ao usuário tentando editá-la
             // Se o usuario for admin, ele pode editar mesmo solicitações que não são dele
-            Solicitation solicitation = solicitationService.canInteract(solicitationId, user, false);
+            Solicitation solicitation = solicitationService.canInteract(solicitationId, user, EventType.REQUEST_VIEWING);
             eventService.sendNotificationForLatestEvent(solicitation, user);
             return ResponseEntity.ok(true);
 

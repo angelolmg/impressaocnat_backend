@@ -9,6 +9,7 @@ import jakarta.mail.MessagingException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -46,10 +47,9 @@ public class EventService {
                 Set<User> interestedUsers = getInterestedUsers(solicitation);
 
                 // 2. Excluir o próprio usuário que disparou a ação
-                Set<User> recipients = interestedUsers;
-//                        .stream()
+                Set<User> recipients = interestedUsers.stream()
 //                        .filter(user -> !user.getRegistrationNumber().equals(triggeringUser.getRegistrationNumber()))
-//                        .collect(Collectors.toSet());
+                        .collect(Collectors.toSet());
 
                 // 3. Extrair os emails dos destinatários distintos
                 List<String> recipientEmails = recipients.stream()
@@ -59,7 +59,7 @@ public class EventService {
 
                 if (!recipientEmails.isEmpty()) {
                     String subject = "[Impressão CNAT] Notificação sobre solicitação";
-                    String body = generateNotificationBody(solicitation, latestEvent);
+                    String body = generateNotificationBodyForLatestEvent(solicitation, latestEvent);
                     String[] toAddresses = recipientEmails.toArray(new String[0]);
 
                     try {
@@ -73,6 +73,37 @@ public class EventService {
                 }
             }
         });
+    }
+
+    // Used primarilly to send notifications for deletion events,
+    // since deletion events are not saved in the timeline,
+    // because its gone
+    public void sendNotificationForLooseEvent(Solicitation solicitation, User triggeringUser, EventType eventType) {
+
+        Set<User> interestedUsers = getInterestedUsers(solicitation);
+        Set<User> recipients = interestedUsers.stream()
+//                        .filter(user -> !user.getId().equals(triggeringUser.getId()))
+                .collect(Collectors.toSet());
+
+        List<String> recipientEmails = recipients.stream()
+                .map(User::getEmail)
+                .distinct()
+                .toList();
+
+        if (!recipientEmails.isEmpty()) {
+            String subject = "[Impressão CNAT] Notificação sobre solicitação";
+            String body = generateNotificationBodyForLooseEvent(solicitation, triggeringUser, eventType);
+            String[] toAddresses = recipientEmails.toArray(new String[0]);
+
+            try {
+                emailService.sendEmail(toAddresses, subject, body);
+                System.out.println("Notification sent to " + recipientEmails.size() + " interested users for " + eventType + " of solicitation " + solicitation.getId() + ".");
+            } catch (MessagingException e) {
+                System.err.println("Error sending notification: " + e.getMessage());
+            }
+        } else {
+            System.out.println("No other interested users to notify for " + eventType + " of solicitation " + solicitation.getId() + ".");
+        }
     }
 
     private Set<User> getInterestedUsers(Solicitation solicitation) {
@@ -93,15 +124,22 @@ public class EventService {
         return eventType == EventType.REQUEST_OPENING
                 || eventType == EventType.REQUEST_CLOSING
                 //|| eventType == EventType.REQUEST_ARCHIVING
-                || eventType == EventType.REQUEST_EDITING
-                || eventType == EventType.REQUEST_DELETING;
+                || eventType == EventType.REQUEST_EDITING;
     }
 
-    private String generateNotificationBody(Solicitation solicitation, Event event) {
+    private String generateNotificationBodyForLatestEvent(Solicitation solicitation, Event event) {
         return "An event has occurred for Solicitation ID: " + solicitation.getId() + "\n" +
                 "Event Type: " + event.getType() + "\n" +
                 "Created By: " + event.getUser().getCommonName() + " (" + event.getUser().getRegistrationNumber() + ")\n" +
                 "Date/Time: " + event.getCreationDate() + "\n" +
                 "Content: " + event.getContent();
+    }
+
+    private String generateNotificationBodyForLooseEvent(Solicitation solicitation, User triggeringUser, EventType eventType) {
+        return "An event has occurred for Solicitation ID: " + solicitation.getId() + "\n" +
+                "Event Type: " + eventType + "\n" +
+                "Created By: " + triggeringUser.getCommonName() + " (" + triggeringUser.getRegistrationNumber() + ")\n" +
+                "Date/Time: " + LocalDateTime.now() + "\n" +
+                "Content: " + null;
     }
 }

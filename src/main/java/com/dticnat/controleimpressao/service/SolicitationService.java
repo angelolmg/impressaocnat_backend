@@ -54,6 +54,9 @@ public class SolicitationService {
     @Autowired
     private AuthService authService;
 
+    @Autowired
+    private EventService eventService;
+
     @Value("${arquivos.base-dir}")
     private String BASE_DIR;
 
@@ -68,10 +71,10 @@ public class SolicitationService {
      * aplicando filtros opcionais por período, termo de pesquisa, status de conclusão
      * e registro do usuário.
      *
-     * @param startDate      Timestamp (Unix time) da data de início para filtrar por período (opcional).
-     * @param endDate        Timestamp (Unix time) da data de término para filtrar por período (opcional).
-     * @param query          Termo de pesquisa para filtrar por texto em campos relevantes (opcional).
-     * @param is_concluded   Booleano para filtrar solicitações concluídas (true) ou pendentes (false) (opcional).
+     * @param startDate        Timestamp (Unix time) da data de início para filtrar por período (opcional).
+     * @param endDate          Timestamp (Unix time) da data de término para filtrar por período (opcional).
+     * @param query            Termo de pesquisa para filtrar por texto em campos relevantes (opcional).
+     * @param is_concluded     Booleano para filtrar solicitações concluídas (true) ou pendentes (false) (opcional).
      * @param userRegistration Registro do usuário para filtrar solicitações por usuário (opcional).
      * @return Uma lista de solicitações que correspondem aos critérios de filtragem, ordenadas por ID em ordem ascendente.
      */
@@ -126,7 +129,7 @@ public class SolicitationService {
      * @param startDate        Timestamp (Unix time) da data de início para filtrar por período (opcional).
      * @param endDate          Timestamp (Unix time) da data de término para filtrar por período (opcional).
      * @param userQuery        Termo de pesquisa para filtrar por texto em nome do solicitante, matrícula ou ID da solicitação (opcional).
-     * @param isConcluded     Booleano para filtrar solicitações concluídas (true) ou pendentes (false) (opcional).
+     * @param isConcluded      Booleano para filtrar solicitações concluídas (true) ou pendentes (false) (opcional).
      * @param userRegistration Registro do usuário para filtrar solicitações por usuário (opcional).
      * @return Uma Specification JPA que pode ser usada para filtrar solicitações.
      */
@@ -197,7 +200,7 @@ public class SolicitationService {
      *
      * @param solicitation A solicitação a ser atualizada.
      * @throws EntityNotFoundException Se a solicitação com o ID especificado não for encontrada.
-     * @throws ForbiddenException Se a solicitação estiver arquivada (stale), impedindo a alteração do status.
+     * @throws ForbiddenException      Se a solicitação estiver arquivada (stale), impedindo a alteração do status.
      */
     public void toggleConclusionDate(Solicitation solicitation, User user) throws ForbiddenException {
         // Não atualize o status de solicitações obsoletas/arquivadas
@@ -263,7 +266,7 @@ public class SolicitationService {
      * nome do criador, data de criação e data de conclusão não podem ser alterados
      * por este metodo, mantendo seus valores originais.
      *
-     * @param id         O ID da solicitação a ser atualizada.
+     * @param id              O ID da solicitação a ser atualizada.
      * @param newSolicitation O objeto Request contendo os dados a serem atualizados.
      * @return O objeto Request atualizado e persistido na base de dados.
      * @throws EntityNotFoundException Se a solicitação com o ID especificado não for encontrada.
@@ -300,11 +303,11 @@ public class SolicitationService {
      * compara os arquivos existentes com os novos e salva apenas os arquivos novos ou modificados, além de
      * remover os arquivos obsoletos.
      *
-     * @param solicitation      A solicitação à qual os arquivos estão anexados.
+     * @param solicitation A solicitação à qual os arquivos estão anexados.
      * @param files        A lista de arquivos anexados (MultipartFile).
      * @param isNewRequest Flag indicando se a solicitação é nova (true) ou uma edição (false).
-     * @throws IOException            Se ocorrer um erro ao salvar os arquivos no sistema de arquivos.
-     * @throws BadRequestException    Se o número de arquivos enviados não corresponder ao número de cópias a serem carregadas.
+     * @throws IOException             Se ocorrer um erro ao salvar os arquivos no sistema de arquivos.
+     * @throws BadRequestException     Se o número de arquivos enviados não corresponder ao número de cópias a serem carregadas.
      * @throws EntityNotFoundException Se a solicitação existente não for encontrada durante uma edição.
      */
     public void saveFiles(Solicitation solicitation, List<MultipartFile> files, Boolean isNewRequest) throws
@@ -380,7 +383,7 @@ public class SolicitationService {
      * @param id O ID da solicitação a ser removida.
      * @throws EntityNotFoundException Se a solicitação com o ID especificado não for encontrada.
      */
-    public void removeRequest(Long id) throws EntityNotFoundException {
+    public void removeRequest(Long id, boolean sendNotification, User triggeringUser) throws EntityNotFoundException {
         // Busca a solicitação pelo ID
         Solicitation solicitation = solicitationRepository.findById(id).orElseThrow(EntityNotFoundException::new);
 
@@ -390,6 +393,11 @@ public class SolicitationService {
 
         // Remove a solicitação do banco de dados
         solicitationRepository.delete(solicitation);
+
+        // Envia a notificação assincronamente após a exclusão, se a flag estiver true
+        if (sendNotification) {
+            eventService.sendNotificationForLooseEvent(solicitation, triggeringUser, EventType.REQUEST_DELETING);
+        }
     }
 
     /**
@@ -398,17 +406,17 @@ public class SolicitationService {
      * localiza a cópia do arquivo dentro da solicitação e, em seguida, utiliza um serviço para construir
      * a resposta HTTP contendo o arquivo para download.
      *
-     * @param user    Dados do usuário autenticado.
-     * @param solicitationId   ID da solicitação.
-     * @param fileName    Nome do arquivo a ser baixado.
+     * @param user           Dados do usuário autenticado.
+     * @param solicitationId ID da solicitação.
+     * @param fileName       Nome do arquivo a ser baixado.
      * @return ResponseEntity contendo o arquivo para download.
      * @throws EntityNotFoundException Se a solicitação com o ID especificado não for encontrada.
-     * @throws UnauthorizedException Se o usuário não tiver permissão para acessar o arquivo da solicitação.
-     * @throws FileNotFoundException Se o arquivo especificado não for encontrado dentro da solicitação.
-     * @throws PhysicalFileException Se o arquivo for físico e não puder ser encontrado no sistema.
-     * @throws FileGoneException Se o arquivo não estiver mais disponível.
-     * @throws NoSuchFileException Se o arquivo não for encontrado no sistema de arquivos.
-     * @throws IOException Se ocorrer um erro ao ler o arquivo do sistema de arquivos.
+     * @throws UnauthorizedException   Se o usuário não tiver permissão para acessar o arquivo da solicitação.
+     * @throws FileNotFoundException   Se o arquivo especificado não for encontrado dentro da solicitação.
+     * @throws PhysicalFileException   Se o arquivo for físico e não puder ser encontrado no sistema.
+     * @throws FileGoneException       Se o arquivo não estiver mais disponível.
+     * @throws NoSuchFileException     Se o arquivo não for encontrado no sistema de arquivos.
+     * @throws IOException             Se ocorrer um erro ao ler o arquivo do sistema de arquivos.
      */
     public ResponseEntity<?> getFileResponse(User user, Long solicitationId, String fileName) throws
             PhysicalFileException,
@@ -425,7 +433,8 @@ public class SolicitationService {
         // Verificar se o usuário tem permissão para acessar o arquivo
         // Lança UnauthorizedException caso usuário não tenha permissão necessária
         String solicitationOwnerRegistration = solicitation.getUser().getRegistrationNumber();
-        if (!user.isAdminOrManager() && !user.getRegistrationNumber().equals(solicitationOwnerRegistration)) throw new UnauthorizedException();
+        if (!user.isAdminOrManager() && !user.getRegistrationNumber().equals(solicitationOwnerRegistration))
+            throw new UnauthorizedException();
 
         // Buscar se o arquivo existe dentro da solicitação
         Copy copy = solicitation.getCopies()
@@ -440,21 +449,21 @@ public class SolicitationService {
 
     /**
      * Verifica se o usuário tem permissão para interagir com a solicitação.
-     *
+     * <p>
      * Este metodo busca uma solicitação pelo ID e verifica se o usuário autenticado
      * tem permissão para interagir com ela. A permissão é concedida se a solicitação
      * pertencer ao usuário ou se o usuário for um administrador. Para operações de
      * modificação (PATCH/DELETE), a interação é proibida se a solicitação estiver arquivada.
      *
-     * @param solicitationId     ID da solicitação a ser verificada.
-     * @param user      Usuário autenticado.
-     * @param patchOrDelete Flag indicando se a interação é uma operação de modificação (PATCH/DELETE).
+     * @param solicitationId ID da solicitação a ser verificada.
+     * @param user           Usuário autenticado.
+     * @param eventType  Flag indicando tipo de evento (EDIÇÃO)
      * @return A solicitação em questão, se o usuário tiver permissão.
      * @throws EntityNotFoundException Caso a solicitação com o ID especificado não for encontrada.
-     * @throws UnauthorizedException Caso o usuário não tenha permissão para interagir com a solicitação.
-     * @throws ForbiddenException Caso o usuário tente modificar uma solicitação arquivada.
+     * @throws UnauthorizedException   Caso o usuário não tenha permissão para interagir com a solicitação.
+     * @throws ForbiddenException      Caso o usuário tente modificar uma solicitação arquivada.
      */
-    public Solicitation canInteract(Long solicitationId, User user, boolean patchOrDelete) throws
+    public Solicitation canInteract(Long solicitationId, User user, EventType eventType) throws
             EntityNotFoundException,
             UnauthorizedException,
             ForbiddenException {
@@ -462,7 +471,8 @@ public class SolicitationService {
         Solicitation solicitation = solicitationRepository.findById(solicitationId).orElseThrow(EntityNotFoundException::new);
 
         // Proíbe iterações do tipo modificação (PATCH/DELETE) se a solicitação estiver arquivada
-        if (patchOrDelete && solicitation.isArchived()) throw new ForbiddenException();
+        if ((eventType == EventType.REQUEST_EDITING || eventType == EventType.REQUEST_DELETING) && solicitation.isArchived())
+            throw new ForbiddenException();
 
         // Proíba iterações se a solicitação não pertencer ao usuário e o mesmo não for admin
         if (!solicitation.getUser().getRegistrationNumber().equals(user.getRegistrationNumber()) &&
@@ -566,9 +576,9 @@ public class SolicitationService {
      * Caso contrário, lê o arquivo do sistema de arquivos e constrói um ResponseEntity
      * com o arquivo para download.
      *
-     * @param solicitationId            O ID da solicitação associada ao arquivo.
+     * @param solicitationId           O ID da solicitação associada ao arquivo.
      * @param requestOwnerRegistration O registro do proprietário da solicitação.
-     * @param copy                 O objeto Copy que representa o arquivo.
+     * @param copy                     O objeto Copy que representa o arquivo.
      * @return ResponseEntity contendo o arquivo para download.
      * @throws PhysicalFileException Se o arquivo for apenas uma referência física e não estiver disponível para download direto.
      * @throws FileGoneException     Se o arquivo foi removido do disco.
@@ -605,9 +615,9 @@ public class SolicitationService {
      * registro do proprietário e nome do arquivo da cópia. Em seguida, verifica se o
      * arquivo existe no sistema de arquivos.
      *
-     * @param solicitationId            O ID da solicitação associada ao arquivo.
+     * @param solicitationId           O ID da solicitação associada ao arquivo.
      * @param requestOwnerRegistration O registro do proprietário da solicitação.
-     * @param copy                 O objeto Copy que representa o arquivo.
+     * @param copy                     O objeto Copy que representa o arquivo.
      * @return O objeto File representando o arquivo no sistema de arquivos.
      * @throws NoSuchFileException Se o arquivo não for encontrado no sistema de arquivos.
      */

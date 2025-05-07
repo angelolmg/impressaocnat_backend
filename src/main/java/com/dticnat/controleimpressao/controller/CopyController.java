@@ -3,6 +3,7 @@ package com.dticnat.controleimpressao.controller;
 import com.dticnat.controleimpressao.exception.UnauthorizedException;
 import com.dticnat.controleimpressao.model.Copy;
 import com.dticnat.controleimpressao.model.User;
+import com.dticnat.controleimpressao.model.enums.EventType;
 import com.dticnat.controleimpressao.service.AuthService;
 import com.dticnat.controleimpressao.service.CopyService;
 import com.dticnat.controleimpressao.service.SolicitationService;
@@ -71,7 +72,7 @@ public class CopyController {
         try {
             // Verificar se solicitação sendo alterada pertence ao usuário tentando editá-la
             // Se o usuario for admin, ele pode editar mesmo solicitações que não são dele
-            solicitationService.canInteract(solicitationId, user, false);
+            solicitationService.canInteract(solicitationId, user, EventType.REQUEST_VIEWING);
             List<Copy> copies = copyService.findAllBySolicitationId(solicitationId, query);
             return ResponseEntity.ok(copies);
 
