@@ -202,7 +202,7 @@ public class SolicitationService {
      * @throws EntityNotFoundException Se a solicitação com o ID especificado não for encontrada.
      * @throws ForbiddenException      Se a solicitação estiver arquivada (stale), impedindo a alteração do status.
      */
-    public void toggleConclusionDate(Solicitation solicitation, User user) throws ForbiddenException {
+    public void toggleConclusionDate(Solicitation solicitation, boolean sendNotification, User user) throws ForbiddenException {
         // Não atualize o status de solicitações obsoletas/arquivadas
         if (solicitation.isArchived()) throw new ForbiddenException();
 
@@ -219,7 +219,11 @@ public class SolicitationService {
                 .creationDate(LocalDateTime.now())
                 .build());
 
-        solicitationRepository.save(solicitation);
+        Solicitation updatedSolicitation = solicitationRepository.save(solicitation);
+
+        // Envia a notificação de edição, caso flag de notificação seja true
+        if (sendNotification)
+            eventService.sendNotificationForLatestEvent(updatedSolicitation, user);
     }
 
     /**
@@ -281,6 +285,7 @@ public class SolicitationService {
         newSolicitation.setCreationDate(solicitation.getCreationDate());
         newSolicitation.setConclusionDate(solicitation.getConclusionDate());
 
+        // Adiciona evento de edição à linha do tempo
         solicitation.getTimeline().add(
                 Event
                         .builder()
@@ -293,7 +298,13 @@ public class SolicitationService {
 
         newSolicitation.setTimeline(solicitation.getTimeline());
 
-        return solicitationRepository.save(newSolicitation);
+        // Salva solicitação editada
+        Solicitation updatedSolicitation = solicitationRepository.save(newSolicitation);
+
+        // Envia notificação de edição às partes interessadas
+        eventService.sendNotificationForLatestEvent(updatedSolicitation, user);
+
+        return updatedSolicitation;
     }
 
     /**
@@ -545,7 +556,11 @@ public class SolicitationService {
                 .creationDate(LocalDateTime.now())
                 .build());
 
-        solicitationRepository.save(solicitation);
+        // Atualiza solicitação com novo comentário
+        Solicitation updatedSolicitation = solicitationRepository.save(solicitation);
+
+        // Notifica novo comentário às partes interessadas
+        eventService.sendNotificationForLatestEvent(updatedSolicitation, user);
     }
 
 // ============================================================= //

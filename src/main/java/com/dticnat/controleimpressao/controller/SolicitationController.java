@@ -381,7 +381,9 @@ public class SolicitationController {
     })
     @PatchMapping("/{solicitationId}/status")
     public ResponseEntity<?> toggleRequestStatus(HttpServletRequest httpRequest,
-                                                 @Parameter(description = "ID da solicitação") @PathVariable Long solicitationId) {
+                                                 @Parameter(description = "ID da solicitação") @PathVariable Long solicitationId,
+                                                 @Parameter(description = "Indica se usuários interessados devem ser notificados após deleção bem sucedida.")
+                                                     @RequestParam(value = "sendNotification", required = false) Boolean sendNotification) {
 
         // Recuperar dados do usuário autenticado do request http
         User user = (User) httpRequest.getAttribute("userPrincipal");
@@ -392,7 +394,7 @@ public class SolicitationController {
             Solicitation solicitation = solicitationService.canInteract(solicitationId, user, EventType.REQUEST_EDITING);
 
             // Alterna status da solicitação
-            solicitationService.toggleConclusionDate(solicitation, user);
+            solicitationService.toggleConclusionDate(solicitation, sendNotification, user);
             return ResponseEntity.ok("Status da solicitação atualizado com sucesso.");
 
         } catch (EntityNotFoundException e) {

@@ -6,7 +6,10 @@ import com.dticnat.controleimpressao.model.User;
 import com.dticnat.controleimpressao.model.enums.EventType;
 import com.dticnat.controleimpressao.repository.EventRepository;
 import jakarta.mail.MessagingException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -25,6 +28,9 @@ public class EventService {
     @Autowired
     private EmailService emailService;
 
+    private static final Logger logger = LoggerFactory.getLogger(EventService.class);
+
+
     public Optional<Event> getLatestEventForSolicitation(Solicitation solicitation) {
         List<Event> events = solicitation.getTimeline();
 
@@ -36,6 +42,9 @@ public class EventService {
                 .max(Comparator.comparing(Event::getCreationDate));
     }
 
+    // Envia emails para todos os interessados associados a uma determinada solicitação, exceto a quem executou a ação
+    // Executado assincronamente para não bloquear a resposta ao cliente ao enviar email
+    @Async
     public void sendNotificationForLatestEvent(Solicitation solicitation, User triggeringUser) {
         Optional<Event> latestEventOptional = getLatestEventForSolicitation(solicitation);
 
@@ -48,12 +57,12 @@ public class EventService {
 
                 // 2. Excluir o próprio usuário que disparou a ação
                 Set<User> recipients = interestedUsers.stream()
-//                        .filter(user -> !user.getRegistrationNumber().equals(triggeringUser.getRegistrationNumber()))
+//                        .filter(user -> triggeringUser == null || !user.getRegistrationNumber().equals(triggeringUser.getRegistrationNumber()))
                         .collect(Collectors.toSet());
 
                 // 3. Extrair os emails dos destinatários distintos
                 List<String> recipientEmails = recipients.stream()
-                        .map(User::getEmail) // Assuming User has an getEmail()
+                        .map(User::getEmail)
                         .distinct()
                         .toList();
 
@@ -64,12 +73,12 @@ public class EventService {
 
                     try {
                         emailService.sendEmail(toAddresses, subject, body);
-                        System.out.println("Notification sent to " + recipientEmails.size() + " interested users.");
+                        logger.info("Notificação enviada com sucesso para a solicitação ID {} para {} usuários interessados.", solicitation.getId(), recipientEmails.size());
                     } catch (MessagingException e) {
-                        System.err.println("Error sending notification: " + e.getMessage());
+                        logger.error("Erro ao enviar notificação para ID de solicitação {}: {}", solicitation.getId(), e.getMessage(), e);
                     }
                 } else {
-                    System.out.println("No other interested users to notify.");
+                    logger.info("Nenhum outro usuário interessado a ser notificado para ID de solicitação {}.", solicitation.getId());
                 }
             }
         });
@@ -78,6 +87,8 @@ public class EventService {
     // Used primarilly to send notifications for deletion events,
     // since deletion events are not saved in the timeline,
     // because its gone
+    // Executado assincronamente para não bloquear a resposta ao cliente ao enviar email
+    @Async
     public void sendNotificationForLooseEvent(Solicitation solicitation, User triggeringUser, EventType eventType) {
 
         Set<User> interestedUsers = getInterestedUsers(solicitation);
@@ -97,12 +108,12 @@ public class EventService {
 
             try {
                 emailService.sendEmail(toAddresses, subject, body);
-                System.out.println("Notification sent to " + recipientEmails.size() + " interested users for " + eventType + " of solicitation " + solicitation.getId() + ".");
+                logger.info("Notificação enviada com sucesso para a ID de solicitação {} (Tipo de evento: {}) para {} usuários interessados.", solicitation.getId(), eventType, recipientEmails.size());
             } catch (MessagingException e) {
-                System.err.println("Error sending notification: " + e.getMessage());
+                logger.error("Erro ao enviar notificação para ID de solicitação {} (Tipo de evento: {}): {}", solicitation.getId(), eventType, e.getMessage(), e);
             }
         } else {
-            System.out.println("No other interested users to notify for " + eventType + " of solicitation " + solicitation.getId() + ".");
+            logger.info("Nenhum outro usuário interessado a ser notificado para o ID de solicitação {} (Tipo de evento: {}).", solicitation.getId(), eventType);
         }
     }
 
@@ -121,8 +132,10 @@ public class EventService {
 
     private boolean shouldSendNotification(EventType eventType) {
         // Atualmente, qualquer operação exceto ARQUIVAMENTO pode notificar via email
-        return eventType == EventType.REQUEST_OPENING
+        return eventType == EventType.COMMENT
+                || eventType == EventType.REQUEST_OPENING
                 || eventType == EventType.REQUEST_CLOSING
+                || eventType == EventType.REQUEST_DELETING
                 //|| eventType == EventType.REQUEST_ARCHIVING
                 || eventType == EventType.REQUEST_EDITING;
     }
