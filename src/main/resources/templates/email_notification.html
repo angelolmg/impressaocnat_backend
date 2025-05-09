@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <title>Notificação sobre Solicitação</title>
+  <style>
+      :root {
+          --background: #e8f0e3;
+          --main: #ffffff;
+          --button: #387652;
+          --table-header: rgb(167, 209, 171);
+          --table-row: #ffffff;
+          --table-row-concluded: #e8f0e3;
+          --side-menu-buttons: white;
+          --user-card: #ffffff;
+          --border: #d0d5d9;
+          --text-color: #333;
+          --text-color-secondary: #44474e;
+          --accent: #66b3ff;
+          --accent-secondary: #add6ff;
+          --warning: #ff9800;
+          --error: #f44336;
+          --summary-chip: #ffffff;
+          --font-family-primary: Roboto, "Helvetica Neue", sans-serif;
+          --transparent-overlay: rgba(56, 118, 82, 0.1);
+          --spinner: #387652;
+          --muted: #777;
+      }
+
+      body {
+          font-family: Arial, sans-serif;
+          color: var(--text-color);
+          background-color: var(--background);
+          padding: 20px;
+      }
+      .container {
+          background-color: var(--main);
+          padding: 20px;
+          border-radius: 5px;
+          border: 1px solid var(--border);
+      }
+      h2 {
+           color: var(--button); /* Or var(--warning)  */
+      }
+      hr {
+          border-top: 1px solid var(--border);
+          margin: 15px 0;
+      }
+      p {
+          font-size: 14px;
+      }
+      .content-box {
+          background-color: #f9f9f9;
+          padding: 10px;
+          border-radius: 3px;
+          border: 1px solid var(--border);
+          font-size: 14px;
+      }
+     .no-reply {
+          font-size: 12px;
+          color: var(--muted);
+          margin-top: 20px;
+          font-style: italic;
+      }
+      .footer {
+          font-size: 12px;
+          color: var(--muted);
+          text-align: center;
+      }
+
+  </style>
+</head>
+<body>
+<div class="container">
+  <h2 th:style="${h2Color}" th:text="${title}"></h2>
+  <p style="font-size: 16px;" th:text="${eventMessage}"></p>
+  <hr>
+  <p><strong>Por:</strong> <span th:text="${userName}"></span> (<span th:text="${userRegistration}"></span>)</p>
+  <p><strong>Data/Hora:</strong> <span th:text="${eventDate}"></span></p>
+  <div th:if="${showContent}">
+    <p><strong>Conteúdo:</strong></p>
+    <div class="content-box">
+      <p th:text="${eventContent}"></p>
+    </div>
+  </div>
+
+  <p class="no-reply">Este é um email automático. Por favor, não responda a esta mensagem.</p>
+  <hr>
+  <p class="footer">© 2025 Diretoria de Tecnologia da Informação (DTI) IFRN/CNAT | <a href="mailto:dti.cnat@ifrn.edu.br">dti.cnat@ifrn.edu.br</a></p>
+</div>
+</body>
+</html>

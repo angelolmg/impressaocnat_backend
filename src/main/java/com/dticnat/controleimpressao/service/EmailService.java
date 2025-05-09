@@ -13,8 +13,8 @@ public class EmailService {
     private JavaMailSender emailSender;
 
     public void sendEmail(String[] toAddresses, String subject, String text) throws MessagingException {
-        MimeMessage message= emailSender.createMimeMessage();
-        MimeMessageHelper helper = new MimeMessageHelper(message, true);
+        MimeMessage message = emailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
         helper.setTo(toAddresses);
         helper.setSubject(subject);

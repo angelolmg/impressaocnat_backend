@@ -11,8 +11,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.context.Context;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -28,8 +31,10 @@ public class EventService {
     @Autowired
     private EmailService emailService;
 
-    private static final Logger logger = LoggerFactory.getLogger(EventService.class);
+    @Autowired
+    private TemplateEngine templateEngine;
 
+    private static final Logger logger = LoggerFactory.getLogger(EventService.class);
 
     public Optional<Event> getLatestEventForSolicitation(Solicitation solicitation) {
         List<Event> events = solicitation.getTimeline();
@@ -68,7 +73,7 @@ public class EventService {
 
                 if (!recipientEmails.isEmpty()) {
                     String subject = "[Impressão CNAT] Notificação sobre solicitação";
-                    String body = generateNotificationBodyForLatestEvent(solicitation, latestEvent);
+                    String body = generateHtmlContentForLatestEvent(solicitation, latestEvent);
                     String[] toAddresses = recipientEmails.toArray(new String[0]);
 
                     try {
@@ -103,7 +108,7 @@ public class EventService {
 
         if (!recipientEmails.isEmpty()) {
             String subject = "[Impressão CNAT] Notificação sobre solicitação";
-            String body = generateNotificationBodyForLooseEvent(solicitation, triggeringUser, eventType);
+            String body = generateHtmlContentForLooseEvent(solicitation, triggeringUser, eventType);
             String[] toAddresses = recipientEmails.toArray(new String[0]);
 
             try {
@@ -140,19 +145,50 @@ public class EventService {
                 || eventType == EventType.REQUEST_EDITING;
     }
 
-    private String generateNotificationBodyForLatestEvent(Solicitation solicitation, Event event) {
-        return "An event has occurred for Solicitation ID: " + solicitation.getId() + "\n" +
-                "Event Type: " + event.getType() + "\n" +
-                "Created By: " + event.getUser().getCommonName() + " (" + event.getUser().getRegistrationNumber() + ")\n" +
-                "Date/Time: " + event.getCreationDate() + "\n" +
-                "Content: " + event.getContent();
+
+    private String generateHtmlContentForLatestEvent(Solicitation solicitation, Event event) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+        String solicitationNumber = String.format("Nº%06d", solicitation.getId());
+
+        // Prepare Thymeleaf context
+        final Context ctx = new Context();
+        ctx.setVariable("title", "Notificação sobre solicitação");
+        ctx.setVariable("eventMessage",  (event.getType() == EventType.COMMENT) ? "Um novo comentário foi adicionado à solicitação " + solicitationNumber + "." :
+                (event.getType() == EventType.REQUEST_OPENING) ? "A solicitação " + solicitationNumber + " foi aberta." :
+                        (event.getType() == EventType.REQUEST_CLOSING) ? "A solicitação " + solicitationNumber + " foi fechada." :
+                                (event.getType() == EventType.REQUEST_EDITING) ? "A solicitação " + solicitationNumber + " foi editada." :
+                                        (event.getType() == EventType.REQUEST_DELETING) ? "A solicitação " + solicitationNumber + " foi excluída." :
+                                                "Uma atualização ocorreu na solicitação " + solicitationNumber + ".");
+        ctx.setVariable("eventType", event.getType());
+        ctx.setVariable("userName", event.getUser().getCommonName());
+        ctx.setVariable("userRegistration", event.getUser().getRegistrationNumber());
+        ctx.setVariable("eventDate", event.getCreationDate().format(formatter));
+        ctx.setVariable("showContent", event.getType() == EventType.COMMENT);
+        ctx.setVariable("eventContent", event.getContent() != null ? event.getContent() : "Nenhum conteúdo adicional.");
+        ctx.setVariable("h2Color", "var(--button)");
+
+        return templateEngine.process("email_notification.html", ctx);
     }
 
-    private String generateNotificationBodyForLooseEvent(Solicitation solicitation, User triggeringUser, EventType eventType) {
-        return "An event has occurred for Solicitation ID: " + solicitation.getId() + "\n" +
-                "Event Type: " + eventType + "\n" +
-                "Created By: " + triggeringUser.getCommonName() + " (" + triggeringUser.getRegistrationNumber() + ")\n" +
-                "Date/Time: " + LocalDateTime.now() + "\n" +
-                "Content: " + null;
+    private String generateHtmlContentForLooseEvent(Solicitation solicitation, User triggeringUser, EventType eventType) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+        String solicitationNumber = String.format("Nº%06d", solicitation.getId());
+
+        final Context ctx = new Context();
+        ctx.setVariable("title", "Notificação sobre solicitação");
+        ctx.setVariable("eventMessage",  (eventType == EventType.REQUEST_OPENING) ? "A solicitação " + solicitationNumber + " foi aberta." :
+                (eventType == EventType.REQUEST_CLOSING) ? "A solicitação " + solicitationNumber + " foi encerrada." :
+                        (eventType == EventType.REQUEST_EDITING) ? "A solicitação " + solicitationNumber + " foi editada." :
+                                (eventType == EventType.REQUEST_DELETING) ? "A solicitação " + solicitationNumber + " foi excluída." :
+                                        "Uma atualização ocorreu na solicitação " + solicitationNumber + ".");
+        ctx.setVariable("eventType", eventType);
+        ctx.setVariable("userName", triggeringUser.getCommonName());
+        ctx.setVariable("userRegistration", triggeringUser.getRegistrationNumber());
+        ctx.setVariable("eventDate", LocalDateTime.now().format(formatter));
+        ctx.setVariable("showContent", false);
+        ctx.setVariable("eventContent",  "Nenhuma informação de conteúdo específica para este evento.");
+        ctx.setVariable("h2Color", "var(--warning)");
+
+        return templateEngine.process("email_notification.html", ctx);
     }
 }
