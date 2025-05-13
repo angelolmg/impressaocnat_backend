@@ -9,6 +9,7 @@ import jakarta.mail.MessagingException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
@@ -33,6 +34,12 @@ public class EventService {
 
     @Autowired
     private TemplateEngine templateEngine;
+
+    @Value("${FRONTEND_URL}")
+    private String frontendUrl;
+
+    @Value("${BACKEND_URL}")
+    private String backendUrl;
 
     private static final Logger logger = LoggerFactory.getLogger(EventService.class);
 
@@ -152,20 +159,20 @@ public class EventService {
 
         // Prepare Thymeleaf context
         final Context ctx = new Context();
-        ctx.setVariable("title", "Notificação sobre solicitação");
         ctx.setVariable("eventMessage",  (event.getType() == EventType.COMMENT) ? "Um novo comentário foi adicionado à solicitação " + solicitationNumber + "." :
                 (event.getType() == EventType.REQUEST_OPENING) ? "A solicitação " + solicitationNumber + " foi aberta." :
                         (event.getType() == EventType.REQUEST_CLOSING) ? "A solicitação " + solicitationNumber + " foi fechada." :
                                 (event.getType() == EventType.REQUEST_EDITING) ? "A solicitação " + solicitationNumber + " foi editada." :
                                         (event.getType() == EventType.REQUEST_DELETING) ? "A solicitação " + solicitationNumber + " foi excluída." :
                                                 "Uma atualização ocorreu na solicitação " + solicitationNumber + ".");
-        ctx.setVariable("eventType", event.getType());
         ctx.setVariable("userName", event.getUser().getCommonName());
         ctx.setVariable("userRegistration", event.getUser().getRegistrationNumber());
         ctx.setVariable("eventDate", event.getCreationDate().format(formatter));
         ctx.setVariable("showContent", event.getType() == EventType.COMMENT);
         ctx.setVariable("eventContent", event.getContent() != null ? event.getContent() : "Nenhum conteúdo adicional.");
-        ctx.setVariable("h2Color", "var(--button)");
+        ctx.setVariable("solicitationLink", frontendUrl + "/minhas-solicitacoes/ver/" + solicitation.getId().toString());
+        ctx.setVariable("logodti", backendUrl + "/api/images/logodti.png");
+        ctx.setVariable("logoifrn", backendUrl + "/api/images/logoifrn.png");
 
         return templateEngine.process("email_notification.html", ctx);
     }
@@ -175,19 +182,19 @@ public class EventService {
         String solicitationNumber = String.format("Nº%06d", solicitation.getId());
 
         final Context ctx = new Context();
-        ctx.setVariable("title", "Notificação sobre solicitação");
         ctx.setVariable("eventMessage",  (eventType == EventType.REQUEST_OPENING) ? "A solicitação " + solicitationNumber + " foi aberta." :
                 (eventType == EventType.REQUEST_CLOSING) ? "A solicitação " + solicitationNumber + " foi encerrada." :
                         (eventType == EventType.REQUEST_EDITING) ? "A solicitação " + solicitationNumber + " foi editada." :
                                 (eventType == EventType.REQUEST_DELETING) ? "A solicitação " + solicitationNumber + " foi excluída." :
                                         "Uma atualização ocorreu na solicitação " + solicitationNumber + ".");
-        ctx.setVariable("eventType", eventType);
         ctx.setVariable("userName", triggeringUser.getCommonName());
         ctx.setVariable("userRegistration", triggeringUser.getRegistrationNumber());
         ctx.setVariable("eventDate", LocalDateTime.now().format(formatter));
         ctx.setVariable("showContent", false);
         ctx.setVariable("eventContent",  "Nenhuma informação de conteúdo específica para este evento.");
-        ctx.setVariable("h2Color", "var(--warning)");
+        ctx.setVariable("solicitationLink", frontendUrl + "/minhas-solicitacoes/ver/" + solicitation.getId().toString());
+        ctx.setVariable("logodti", backendUrl + "/api/images/logodti.png");
+        ctx.setVariable("logoifrn", backendUrl + "/api/images/logoifrn.png");
 
         return templateEngine.process("email_notification.html", ctx);
     }

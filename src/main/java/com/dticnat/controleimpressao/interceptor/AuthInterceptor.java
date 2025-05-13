@@ -29,9 +29,10 @@ public class AuthInterceptor implements HandlerInterceptor {
         // Necessário para buscar uma solicilitação por ID
         if(Objects.equals(request.getMethod(), "OPTIONS")) return true;
 
-        // Permite passar requisições para /api/auth/ sem autenticar o usuário
-        if(request.getRequestURI().matches("/api/auth/.*")) return true;
+        String uri = request.getRequestURI();
 
+        // Permite passar determinadas requisições sem autenticar o usuário
+        if (uri.startsWith("/api/auth/") || uri.startsWith("/api/images/")) return true;
 
         String token = request.getHeader("Authorization");
         if (token == null) throw new AuthorizationException("Usuário não autenticado.", HttpStatus.UNAUTHORIZED);
