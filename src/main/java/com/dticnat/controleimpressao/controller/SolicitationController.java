@@ -3,7 +3,6 @@ package com.dticnat.controleimpressao.controller;
 import com.dticnat.controleimpressao.exception.FileGoneException;
 import com.dticnat.controleimpressao.exception.ForbiddenException;
 import com.dticnat.controleimpressao.exception.PhysicalFileException;
-import com.dticnat.controleimpressao.exception.UnauthorizedException;
 import com.dticnat.controleimpressao.model.Solicitation;
 import com.dticnat.controleimpressao.model.User;
 import com.dticnat.controleimpressao.model.dto.CommentDTO;
@@ -55,31 +54,31 @@ public class SolicitationController {
     /**
      * Lista todas as solicitações, com opções de filtragem por usuário, status, data e pesquisa.
      *
-     * @param filtering   Indica se a filtragem por usuário deve ser aplicada (opcional).
-     * @param concluded   Indica se as solicitações concluídas devem ser filtradas (opcional).
-     * @param startDate   Data de início (unix time) para filtragem por data (opcional).
-     * @param endDate     Data de término (unix time) para filtragem por data (opcional).
-     * @param query       Termo de pesquisa para filtragem por texto (opcional).
+     * @param filtering Indica se a filtragem por usuário deve ser aplicada (opcional).
+     * @param concluded Indica se as solicitações concluídas devem ser filtradas (opcional).
+     * @param startDate Data de início (unix time) para filtragem por data (opcional).
+     * @param endDate   Data de término (unix time) para filtragem por data (opcional).
+     * @param query     Termo de pesquisa para filtragem por texto (opcional).
      * @return Lista de solicitações filtradas ou mensagem de erro.
      */
     @Operation(summary = "Lista todas as solicitações")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200",
-                            description = "Lista de solicitações retornada com sucesso.",
-                            content = @Content(mediaType = "application/json",
+                    description = "Lista de solicitações retornada com sucesso.",
+                    content = @Content(mediaType = "application/json",
                             array = @ArraySchema(schema = @Schema(implementation = Solicitation.class))))
     })
     @GetMapping
     public ResponseEntity<?> getAllSolicitations(HttpServletRequest httpRequest,
-                                            @Parameter(description = "Indica se a filtragem por usuário deve ser aplicada (opcional).") @RequestParam(value = "filtering", required = false) Boolean filtering,
-                                            @Parameter(description = "Indica se as solicitações concluídas devem ser filtradas (opcional).") @RequestParam(value = "concluded", required = false) Boolean concluded,
-                                            @Parameter(description = "Data de início para filtragem por data (opcional).")
-                                                     @RequestParam(value = "startDate", required = false)
-                                                     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
-                                            @Parameter(description = "Data de término para filtragem por data (opcional).")
-                                                     @RequestParam(value = "endDate", required = false)
-                                                     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
-                                            @Parameter(description = "Termo de pesquisa para filtragem por texto (opcional).") @RequestParam(value = "query", required = false) String query) {
+                                                 @Parameter(description = "Indica se a filtragem por usuário deve ser aplicada (opcional).") @RequestParam(value = "filtering", required = false) Boolean filtering,
+                                                 @Parameter(description = "Indica se as solicitações concluídas devem ser filtradas (opcional).") @RequestParam(value = "concluded", required = false) Boolean concluded,
+                                                 @Parameter(description = "Data de início para filtragem por data (opcional).")
+                                                 @RequestParam(value = "startDate", required = false)
+                                                 @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+                                                 @Parameter(description = "Data de término para filtragem por data (opcional).")
+                                                 @RequestParam(value = "endDate", required = false)
+                                                 @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
+                                                 @Parameter(description = "Termo de pesquisa para filtragem por texto (opcional).") @RequestParam(value = "query", required = false) String query) {
 
         // Recuperar dados do usuário autenticado do request http
         User user = (User) httpRequest.getAttribute("userPrincipal");
@@ -95,6 +94,21 @@ public class SolicitationController {
     }
 
 
+    /**
+     * Busca uma página de solicitações com suporte a filtros e ordenação.
+     *
+     * @param httpRequest          Requisição HTTP com o usuário autenticado.
+     * @param filtering            Indica se a filtragem por matrícula deve ser aplicada.
+     * @param concluded            Filtro para solicitações concluídas.
+     * @param startDate            Data de início para filtro por data.
+     * @param endDate              Data de término para filtro por data.
+     * @param query                Termo de pesquisa textual.
+     * @param sortingColumn        Coluna para ordenação.
+     * @param sortingDirection     Direção da ordenação (asc/desc).
+     * @param pageNo               Número da página.
+     * @param pageSize             Tamanho da página.
+     * @return Página de solicitações conforme os filtros aplicados.
+     */
     @Operation(summary = "Busca uma página de solicitações")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200",
@@ -107,11 +121,11 @@ public class SolicitationController {
                                                                    @Parameter(description = "Indica se a filtragem por usuário deve ser aplicada (opcional).") @RequestParam(value = "filtering", required = false) Boolean filtering,
                                                                    @Parameter(description = "Indica se as solicitações concluídas devem ser filtradas (opcional).") @RequestParam(value = "concluded", required = false) Boolean concluded,
                                                                    @Parameter(description = "Data de início para filtragem por data (opcional).")
-                                                 @RequestParam(value = "startDate", required = false)
-                                                 @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+                                                                   @RequestParam(value = "startDate", required = false)
+                                                                   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
                                                                    @Parameter(description = "Data de término para filtragem por data (opcional).")
-                                                 @RequestParam(value = "endDate", required = false)
-                                                 @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
+                                                                   @RequestParam(value = "endDate", required = false)
+                                                                   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
                                                                    @Parameter(description = "Termo de pesquisa para filtragem por texto (opcional).") @RequestParam(value = "query", required = false) String query,
                                                                    @Parameter(description = "Coluna de ordenação (opcional).") @RequestParam(value = "sortingColumn", required = false) String sortingColumn,
                                                                    @Parameter(description = "direção da ordenação (opcional).") @RequestParam(value = "sortingDirection", required = false) String sortingDirection,
@@ -133,22 +147,24 @@ public class SolicitationController {
 
     /**
      * Busca uma solicitação pelo ID, com validação de permissão para usuários não administradores.
-            *
-            * @param solicitationId ID da solicitação a ser buscada.
-            * @return Solicitação encontrada (se o usuário tiver permissão) ou mensagem de erro.
-            */
+     *
+     * @param solicitationId ID da solicitação a ser buscada.
+     * @return Solicitação encontrada (se o usuário tiver permissão) ou mensagem de erro.
+     */
     @Operation(summary = "Busca uma solicitação pelo ID")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Solicitação encontrada.",
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = Solicitation.class))),
-            @ApiResponse(responseCode = "401", description = "Não autorizado.",
+            @ApiResponse(responseCode = "403", description = "Proibido.",
                     content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Usuário não autorizado a acessar esta solicitação."))),
             @ApiResponse(responseCode = "404", description = "Solicitação não encontrada.",
-                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Solicitação com ID 123 não encontrada.")))
+                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Solicitação com ID 123 não encontrada."))),
+            @ApiResponse(responseCode = "500", description = "Erro interno.",
+                    content = @Content(mediaType = "text/plain"))
     })
     @GetMapping("/{solicitationId}")
     public ResponseEntity<?> getSolicitationById(HttpServletRequest httpRequest,
-                                            @Parameter(description = "ID da solicitação a ser buscada.") @PathVariable Long solicitationId) {
+                                                 @Parameter(description = "ID da solicitação a ser buscada.") @PathVariable Long solicitationId) {
 
         // Recuperar dados do usuário autenticado do request http
         User user = (User) httpRequest.getAttribute("userPrincipal");
@@ -163,32 +179,36 @@ public class SolicitationController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .contentType(MediaType.TEXT_PLAIN)
                     .body("Solicitação (ID " + String.format("%06d", solicitationId) + ") não encontrada.");
-        } catch (UnauthorizedException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+        } catch (ForbiddenException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .contentType(MediaType.TEXT_PLAIN)
-                    .body("Usuário não autorizado a acessar esta solicitação.");
+                    .body("Usuário não está autorizado a acessar este recurso.");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .body(e.getMessage());
         }
     }
 
     /**
      * Busca e baixa um arquivo associado a uma solicitação.
      *
-     * @param solicitationId        ID da solicitação.
-     * @param fileName  Nome do arquivo.
+     * @param solicitationId ID da solicitação.
+     * @param fileName       Nome do arquivo.
      * @return Arquivo para download ou mensagem de erro.
      */
     @Operation(summary = "Busca e baixa um arquivo associado a uma solicitação")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Arquivo encontrado.",
                     content = @Content(mediaType = "application/octet-stream")),
-            @ApiResponse(responseCode = "401", description = "Não autorizado.",
-                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Usuário não autorizado a acessar o arquivo desta solicitação."))),
+            @ApiResponse(responseCode = "403", description = "Proibido.",
+                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Usuário não está autorizado a acessar este recurso."))),
             @ApiResponse(responseCode = "404", description = "Solicitação ou arquivo não encontrado.",
                     content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Solicitação com ID 123 não encontrada ou Cópia com nome 'nomeDoArquivo.ext' não encontrada ou Arquivo 'nomeDoArquivo.ext' não encontrado."))),
             @ApiResponse(responseCode = "410", description = "Arquivo removido.",
                     content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "O arquivo 'nomeDoArquivo.ext' não está mais disponível."))),
-            @ApiResponse(responseCode = "500", description = "Erro interno ao processar o arquivo (IOException, OutOfMemoryError, SecurityException, etc).",
-                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Erro ao ler o arquivo do sistema.")))
+            @ApiResponse(responseCode = "500", description = "Erro interno.",
+                    content = @Content(mediaType = "text/plain"))
     })
     @GetMapping("/{solicitationId}/{fileName}")
     public ResponseEntity<?> downloadFile(HttpServletRequest httpRequest,
@@ -212,10 +232,10 @@ public class SolicitationController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .contentType(MediaType.TEXT_PLAIN)
                     .body(String.format("Cópia com nome: %s não foi encontrada na solicitação.", fileName));
-        } catch (UnauthorizedException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+        } catch (ForbiddenException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .contentType(MediaType.TEXT_PLAIN)
-                    .body("Usuário não autorizado a acessar o arquivo desta solicitação.");
+                    .body("Usuário não está autorizado a acessar este recurso.");
         } catch (NoSuchFileException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .contentType(MediaType.TEXT_PLAIN)
@@ -231,7 +251,7 @@ public class SolicitationController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .contentType(MediaType.TEXT_PLAIN)
-                    .body("Erro ao ler o arquivo do sistema.");
+                    .body(e.getMessage());
         }
     }
 
@@ -239,7 +259,7 @@ public class SolicitationController {
      * Cria uma nova solicitação com os dados fornecidos e os arquivos anexados.
      *
      * @param solicitationDTO Objeto RequestDTO contendo os dados da nova solicitação.
-     * @param files   Lista de arquivos a serem anexados à solicitação.
+     * @param files           Lista de arquivos a serem anexados à solicitação.
      * @return Nova solicitação criada ou mensagem de erro.
      */
     @Operation(summary = "Cria uma nova solicitação")
@@ -250,8 +270,8 @@ public class SolicitationController {
                     content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "O número de arquivos enviados (2) não corresponde ao número de cópias a carregar (3)."))),
             @ApiResponse(responseCode = "403", description = "Não é possível alterar o status de uma solicitação que foi arquivada.",
                     content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Não é possível alterar solicitações arquivadas."))),
-            @ApiResponse(responseCode = "500", description = "Erro interno ao processar a solicitação ou arquivos",
-                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Erro inesperado ao processar solicitação.")))
+            @ApiResponse(responseCode = "500", description = "Erro interno.",
+                    content = @Content(mediaType = "text/plain"))
     })
     @PostMapping(consumes = {"multipart/form-data"})
     public ResponseEntity<?> createRequest(HttpServletRequest httpRequest,
@@ -275,19 +295,18 @@ public class SolicitationController {
                     .contentType(MediaType.TEXT_PLAIN)
                     .body(e.getMessage());
         } catch (Exception e) {
-            solicitationService.removeRequest(newSolicitation.getId(), false, user);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .contentType(MediaType.TEXT_PLAIN)
-                    .body("Erro inesperado ao processar solicitação.");
+                    .body(e.getMessage());
         }
     }
 
     /**
      * Atualiza parcialmente uma solicitação existente, permitindo a modificação de dados e a adição/substituição de arquivos.
      *
-     * @param solicitationId   ID da solicitação a ser atualizada.
-     * @param solicitation     Objeto Request contendo os dados a serem atualizados.
-     * @param files       Lista de arquivos a serem adicionados ou substituídos (opcional).
+     * @param solicitationId ID da solicitação a ser atualizada.
+     * @param solicitation   Objeto Request contendo os dados a serem atualizados.
+     * @param files          Lista de arquivos a serem adicionados ou substituídos (opcional).
      * @return Solicitação atualizada ou mensagem de erro.
      */
     @Operation(summary = "Atualiza parcialmente uma solicitação existente")
@@ -296,29 +315,27 @@ public class SolicitationController {
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = Solicitation.class))),
             @ApiResponse(responseCode = "400", description = "Número de arquivos enviados foi insuficiente.",
                     content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "O número de arquivos enviados (2) não corresponde ao número de cópias a carregar (3)."))),
-            @ApiResponse(responseCode = "401", description = "Não autorizado. A solicitação não pertence ao usuário ou o usuário não tem permissão para editar.",
-                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Usuário não autorizado a acessar esta solicitação."))),
             @ApiResponse(responseCode = "403", description = "Não é possível alterar o status de uma solicitação que foi arquivada.",
                     content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Não é possível alterar solicitações arquivadas."))),
             @ApiResponse(responseCode = "404", description = "Solicitação não encontrada.",
                     content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Solicitação (ID 000123) não encontrada."))),
-            @ApiResponse(responseCode = "500", description = "Erro interno ao processar a solicitação ou arquivos.",
-                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Erro inesperado ao processar solicitação.")))
+            @ApiResponse(responseCode = "500", description = "Erro interno.",
+                    content = @Content(mediaType = "text/plain"))
     })
     @PatchMapping(value = "/{solicitationId}", consumes = {"multipart/form-data"})
     public ResponseEntity<?> patchSolicitation(HttpServletRequest httpRequest,
-            @Parameter(description = "ID da solicitação") @PathVariable Long solicitationId,
-            @Parameter(description = "Dados da solicitação a serem atualizados")
-                                              @RequestPart("solicitacao") @Valid Solicitation solicitation,
-            @Parameter(description = "Lista de arquivos a serem adicionados/substituídos")
-                                              @RequestPart(value = "arquivos", required = false) List<MultipartFile> files) {
+                                               @Parameter(description = "ID da solicitação") @PathVariable Long solicitationId,
+                                               @Parameter(description = "Dados da solicitação a serem atualizados")
+                                               @RequestPart("solicitacao") @Valid Solicitation solicitation,
+                                               @Parameter(description = "Lista de arquivos a serem adicionados/substituídos")
+                                               @RequestPart(value = "arquivos", required = false) List<MultipartFile> files) {
 
         // Recuperar dados do usuário autenticado do request http
         User user = (User) httpRequest.getAttribute("userPrincipal");
 
         try {
             // ID e solicitação precisam corresponder
-            if(!Objects.equals(solicitationId, solicitation.getId()))
+            if (!Objects.equals(solicitationId, solicitation.getId()))
                 throw new BadRequestException("ID enviado não corresponde à solicitação.");
 
             // Verificar se solicitação sendo alterada pertence ao usuário tentando editá-la
@@ -343,10 +360,6 @@ public class SolicitationController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .contentType(MediaType.TEXT_PLAIN)
                     .body("Solicitação (ID " + String.format("%06d", solicitationId) + ") não encontrada.");
-        } catch (UnauthorizedException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .contentType(MediaType.TEXT_PLAIN)
-                    .body("Usuário não autorizado a acessar esta solicitação.");
         } catch (BadRequestException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .contentType(MediaType.TEXT_PLAIN)
@@ -354,11 +367,11 @@ public class SolicitationController {
         } catch (ForbiddenException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .contentType(MediaType.TEXT_PLAIN)
-                    .body("Não é possível alterar solicitações arquivadas.");
+                    .body("Usuário não está autorizado a acessar este recurso.");
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .contentType(MediaType.TEXT_PLAIN)
-                    .body("Erro inesperado ao processar solicitação.");
+                    .body(e.getMessage());
         }
     }
 
@@ -372,18 +385,18 @@ public class SolicitationController {
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Status da solicitação atualizado com sucesso.",
                     content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Status da solicitação atualizado com sucesso."))),
-            @ApiResponse(responseCode = "401", description = "Não autorizado. A solicitação não pertence ao usuário ou o usuário não tem permissão para editar.",
-                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Usuário não autorizado a acessar esta solicitação."))),
-            @ApiResponse(responseCode = "403", description = "Não é possível alterar o status de uma solicitação que foi arquivada.",
+            @ApiResponse(responseCode = "403", description = "Usuário não está autorizado a acessar este recurso.",
                     content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Não é possível alterar solicitações arquivadas."))),
             @ApiResponse(responseCode = "404", description = "Solicitação não encontrada.",
                     content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Solicitação (ID 000123) não encontrada."))),
+            @ApiResponse(responseCode = "500", description = "Erro interno.",
+                    content = @Content(mediaType = "text/plain"))
     })
     @PatchMapping("/{solicitationId}/status")
     public ResponseEntity<?> toggleRequestStatus(HttpServletRequest httpRequest,
                                                  @Parameter(description = "ID da solicitação") @PathVariable Long solicitationId,
                                                  @Parameter(description = "Indica se usuários interessados devem ser notificados após deleção bem sucedida.")
-                                                     @RequestParam(value = "sendNotification", required = false) Boolean sendNotification) {
+                                                 @RequestParam(value = "sendNotification", required = false) Boolean sendNotification) {
 
         // Recuperar dados do usuário autenticado do request http
         User user = (User) httpRequest.getAttribute("userPrincipal");
@@ -401,14 +414,14 @@ public class SolicitationController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .contentType(MediaType.TEXT_PLAIN)
                     .body("Solicitação (ID " + String.format("%06d", solicitationId) + ") não encontrada.");
-        } catch (UnauthorizedException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .contentType(MediaType.TEXT_PLAIN)
-                    .body("Usuário não autorizado a editar esta solicitação.");
         } catch (ForbiddenException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .contentType(MediaType.TEXT_PLAIN)
-                    .body("Não é possível alterar solicitações arquivadas.");
+                    .body("Usuário não está autorizado a acessar este recurso.");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .body(e.getMessage());
         }
     }
 
@@ -422,12 +435,12 @@ public class SolicitationController {
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Comentário adicionado com sucesso.",
                     content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Comentário adicionado com sucesso."))),
-            @ApiResponse(responseCode = "401", description = "Não autorizado. A solicitação não pertence ao usuário ou o usuário não tem permissão para interagir.",
-                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Usuário não autorizado a acessar esta solicitação."))),
             @ApiResponse(responseCode = "403", description = "Não é possível adicionar comentários a uma solicitação que foi arquivada.",
-                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Não é possível adicionar comentários a solicitações arquivadas."))),
+                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Usuário não está autorizado a acessar este recurso."))),
             @ApiResponse(responseCode = "404", description = "Solicitação não encontrada.",
                     content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Solicitação (ID 000123) não encontrada."))),
+            @ApiResponse(responseCode = "500", description = "Erro interno.",
+                    content = @Content(mediaType = "text/plain"))
     })
     @PatchMapping("/{solicitationId}/comentario")
     public ResponseEntity<?> toggleRequestStatus(HttpServletRequest httpRequest,
@@ -450,14 +463,14 @@ public class SolicitationController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .contentType(MediaType.TEXT_PLAIN)
                     .body("Solicitação (ID " + String.format("%06d", solicitationId) + ") não encontrada.");
-        } catch (UnauthorizedException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .contentType(MediaType.TEXT_PLAIN)
-                    .body("Usuário não autorizado a acessar esta solicitação.");
         } catch (ForbiddenException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .contentType(MediaType.TEXT_PLAIN)
-                    .body("Não é possível adicionar comentários a solicitações arquivadas.");
+                    .body("Usuário não está autorizado a acessar este recurso.");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .body(e.getMessage());
         }
     }
 
@@ -469,20 +482,20 @@ public class SolicitationController {
      */
     @Operation(summary = "Remove uma solicitação pelo ID")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Solicitação removida com sucesso",
+            @ApiResponse(responseCode = "200", description = "Solicitação removida com sucesso.",
                     content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Solicitação (ID 000123) removida com sucesso."))),
-            @ApiResponse(responseCode = "401", description = "Não autorizado. A solicitação não pertence ao usuário ou o usuário não tem permissão para editar.",
-                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Usuário não autorizado a remover esta solicitação."))),
-            @ApiResponse(responseCode = "403", description = "Não é possível alterar o status de uma solicitação que foi arquivada.",
-                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Não é possível alterar solicitações arquivadas."))),
-            @ApiResponse(responseCode = "404", description = "Solicitação não encontrada",
-                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Solicitação (ID 000123) não encontrada.")))
+            @ApiResponse(responseCode = "403", description = "Proibido.",
+                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Usuário não está autorizado a acessar este recurso."))),
+            @ApiResponse(responseCode = "404", description = "Solicitação não encontrada.",
+                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Solicitação (ID 000123) não encontrada."))),
+            @ApiResponse(responseCode = "500", description = "Erro interno.",
+                    content = @Content(mediaType = "text/plain"))
     })
     @DeleteMapping("/{solicitationId}")
     public ResponseEntity<?> removeRequest(HttpServletRequest httpRequest,
                                            @Parameter(description = "ID da solicitação") @PathVariable Long solicitationId,
                                            @Parameter(description = "Indica se usuários interessados devem ser notificados após deleção bem sucedida.")
-                                               @RequestParam(value = "sendNotification", required = false) Boolean sendNotification) {
+                                           @RequestParam(value = "sendNotification", required = false) Boolean sendNotification) {
         // Recuperar dados do usuário autenticado do request http
         User user = (User) httpRequest.getAttribute("userPrincipal");
 
@@ -501,14 +514,10 @@ public class SolicitationController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .contentType(MediaType.TEXT_PLAIN)
                     .body("Solicitação (ID " + String.format("%06d", solicitationId) + ") não encontrada.");
-        } catch (UnauthorizedException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .contentType(MediaType.TEXT_PLAIN)
-                    .body("Usuário não autorizado a remover esta solicitação.");
         } catch (ForbiddenException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .contentType(MediaType.TEXT_PLAIN)
-                    .body("Não é possível alterar solicitações arquivadas.");
+                    .body("Usuário não está autorizado a acessar este recurso.");
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .contentType(MediaType.TEXT_PLAIN)

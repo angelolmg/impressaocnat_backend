@@ -10,17 +10,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -40,6 +40,9 @@ public class EventService {
 
     @Value("${BACKEND_URL}")
     private String backendUrl;
+
+    @Autowired
+    private ResourceLoader resourceLoader;
 
     private static final Logger logger = LoggerFactory.getLogger(EventService.class);
 
@@ -152,50 +155,66 @@ public class EventService {
                 || eventType == EventType.REQUEST_EDITING;
     }
 
-
-    private String generateHtmlContentForLatestEvent(Solicitation solicitation, Event event) {
+    // Gerar conteúdo do email
+    private String generateHtmlContent(Solicitation solicitation, User user, EventType eventType, String eventContent) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
         String solicitationNumber = String.format("Nº%06d", solicitation.getId());
 
-        // Prepare Thymeleaf context
         final Context ctx = new Context();
-        ctx.setVariable("eventMessage",  (event.getType() == EventType.COMMENT) ? "Um novo comentário foi adicionado à solicitação " + solicitationNumber + "." :
-                (event.getType() == EventType.REQUEST_OPENING) ? "A solicitação " + solicitationNumber + " foi aberta." :
-                        (event.getType() == EventType.REQUEST_CLOSING) ? "A solicitação " + solicitationNumber + " foi fechada." :
-                                (event.getType() == EventType.REQUEST_EDITING) ? "A solicitação " + solicitationNumber + " foi editada." :
-                                        (event.getType() == EventType.REQUEST_DELETING) ? "A solicitação " + solicitationNumber + " foi excluída." :
-                                                "Uma atualização ocorreu na solicitação " + solicitationNumber + ".");
-        ctx.setVariable("userName", event.getUser().getCommonName());
-        ctx.setVariable("userRegistration", event.getUser().getRegistrationNumber());
-        ctx.setVariable("eventDate", event.getCreationDate().format(formatter));
-        ctx.setVariable("showContent", event.getType() == EventType.COMMENT);
-        ctx.setVariable("eventContent", event.getContent() != null ? event.getContent() : "Nenhum conteúdo adicional.");
-        ctx.setVariable("solicitationLink", frontendUrl + "/minhas-solicitacoes/ver/" + solicitation.getId().toString());
-        ctx.setVariable("logodti", backendUrl + "/api/images/logodti.png");
-        ctx.setVariable("logoifrn", backendUrl + "/api/images/logoifrn.png");
+        ctx.setVariable("eventMessage", switch (eventType) {
+            case COMMENT -> "Um novo comentário foi adicionado à solicitação " + solicitationNumber + ".";
+            case REQUEST_OPENING -> "A solicitação " + solicitationNumber + " foi aberta.";
+            case REQUEST_CLOSING -> "A solicitação " + solicitationNumber + " foi fechada.";
+            case REQUEST_EDITING -> "A solicitação " + solicitationNumber + " foi editada.";
+            case REQUEST_DELETING -> "A solicitação " + solicitationNumber + " foi excluída.";
+            case REQUEST_ARCHIVING -> "A solicitação " + solicitationNumber + " foi arquivada.";
+            default -> "Uma atualização ocorreu na solicitação " + solicitationNumber + ".";
+        });
+
+        ctx.setVariable("userName", user.getCommonName());
+        ctx.setVariable("userRegistration", user.getRegistrationNumber());
+        ctx.setVariable("eventDate", LocalDateTime.now().format(formatter)); // Default to now, can be overridden
+        ctx.setVariable("showContent", eventType == EventType.COMMENT);
+        ctx.setVariable("showRedirect", (eventType != EventType.REQUEST_DELETING && eventType != EventType.REQUEST_ARCHIVING));
+        ctx.setVariable("eventContent", eventContent != null ? eventContent : "Nenhuma informação de conteúdo específica para este evento.");
+        ctx.setVariable("solicitationLink", frontendUrl + "/solicitacoes/ver/" + solicitation.getId().toString());
+
+        try {
+            Resource dtiResource = resourceLoader.getResource("classpath:static/images/logodti.png");
+            byte[] dtiBytes = dtiResource.getInputStream().readAllBytes();
+            String base64Dti = Base64.getEncoder().encodeToString(dtiBytes);
+            ctx.setVariable("logodti", "data:image/png;base64," + base64Dti);
+
+            Resource ifrnResource = resourceLoader.getResource("classpath:static/images/logoifrn.png");
+            byte[] ifrnBytes = ifrnResource.getInputStream().readAllBytes();
+            String base64Ifrn = Base64.getEncoder().encodeToString(ifrnBytes);
+            ctx.setVariable("logoifrn", "data:image/png;base64," + base64Ifrn);
+
+        } catch (IOException e) {
+            System.err.println("Erro ao carregar imagens: " + e.getMessage());
+            // Handle the error appropriately with fallback URL
+            ctx.setVariable("logodti", backendUrl + "/api/images/logodti.png"); // Fallback
+            ctx.setVariable("logoifrn", backendUrl + "/api/images/logoifrn.png"); // Fallback
+        }
 
         return templateEngine.process("email_notification.html", ctx);
     }
 
+    private String generateHtmlContentForLatestEvent(Solicitation solicitation, Event event) {
+        return generateHtmlContent(
+                solicitation,
+                event.getUser(),
+                event.getType(),
+                event.getContent()
+        );
+    }
+
     private String generateHtmlContentForLooseEvent(Solicitation solicitation, User triggeringUser, EventType eventType) {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
-        String solicitationNumber = String.format("Nº%06d", solicitation.getId());
-
-        final Context ctx = new Context();
-        ctx.setVariable("eventMessage",  (eventType == EventType.REQUEST_OPENING) ? "A solicitação " + solicitationNumber + " foi aberta." :
-                (eventType == EventType.REQUEST_CLOSING) ? "A solicitação " + solicitationNumber + " foi encerrada." :
-                        (eventType == EventType.REQUEST_EDITING) ? "A solicitação " + solicitationNumber + " foi editada." :
-                                (eventType == EventType.REQUEST_DELETING) ? "A solicitação " + solicitationNumber + " foi excluída." :
-                                        "Uma atualização ocorreu na solicitação " + solicitationNumber + ".");
-        ctx.setVariable("userName", triggeringUser.getCommonName());
-        ctx.setVariable("userRegistration", triggeringUser.getRegistrationNumber());
-        ctx.setVariable("eventDate", LocalDateTime.now().format(formatter));
-        ctx.setVariable("showContent", false);
-        ctx.setVariable("eventContent",  "Nenhuma informação de conteúdo específica para este evento.");
-        ctx.setVariable("solicitationLink", frontendUrl + "/minhas-solicitacoes/ver/" + solicitation.getId().toString());
-        ctx.setVariable("logodti", backendUrl + "/api/images/logodti.png");
-        ctx.setVariable("logoifrn", backendUrl + "/api/images/logoifrn.png");
-
-        return templateEngine.process("email_notification.html", ctx);
+        return generateHtmlContent(
+                solicitation,
+                triggeringUser,
+                eventType,
+                null // No specific content for loose events in the original method
+        );
     }
 }

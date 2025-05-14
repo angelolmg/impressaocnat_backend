@@ -31,13 +31,11 @@
     }
 
     .logo-dti {
-      height: 40px;
       margin: auto;
       margin-right: 32px;
     }
 
     .logo-ifrn {
-      height: 60px;
       margin: auto;
       margin-left: 32px;
     }
@@ -121,10 +119,10 @@
 <div class="container">
   <div class="header">
     <div class="logo-dti">
-      <img src="" th:src="${logodti}" alt="Logo DTI" style="height: 40px;">
+      <img th:src="${logodti}" alt="Logo DTI" style="height: 40px;">
     </div>
     <div class="logo-ifrn">
-      <img src="" th:src="${logoifrn}" alt="Logo IFRN" style="height: 60px;">
+      <img th:src="${logoifrn}" alt="Logo IFRN" style="height: 60px;">
     </div>
   </div>
   <h2>Sistema de solicitação de cópias - CNAT</h2>
@@ -139,10 +137,10 @@
   <p class="sender-info">Enviado por <span th:text="${userName}">{{userName}}</span> (<span th:text="${userRegistration}">{{userRegistration}}</span>) às <span th:text="${eventDate}">{{eventDate}}</span></p>
 
   <!--  Botão de redirect-->
-  <div th:if="${showContent}" class="button-container">
+  <div th:if="${showRedirect}" class="button-container">
     <a th:href="${solicitationLink}" class="button">Acessar solicitação</a>
   </div>
-  <p th:if="${showContent}" class="link">Link: <a th:href="${solicitationLink}" style="color: #007bff; text-decoration: underline;" th:text="${solicitationLink}">{{solicitationLink}}</a></p>
+  <p th:if="${showRedirect}" class="link">Link: <a th:href="${solicitationLink}" style="color: #007bff; text-decoration: underline;" th:text="${solicitationLink}">{{solicitationLink}}</a></p>
 
   <div class="footer">
     <p>Av. Sen. Salgado Filho, 1559 - Tirol, Natal - RN, 59015-000 | Tel: (84) 9999-9999 | Email: <a href="mailto:dti.cnat@ifrn.edu.br">dti.cnat@ifrn.edu.br</a></p>

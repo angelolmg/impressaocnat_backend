@@ -1,13 +1,12 @@
 package com.dticnat.controleimpressao.service;
 
-import com.dticnat.controleimpressao.exception.AuthorizationException;
+import com.dticnat.controleimpressao.exception.UnauthorizedException;
 import com.dticnat.controleimpressao.model.User;
 import com.dticnat.controleimpressao.model.dto.SuapLoginDTO;
 import com.dticnat.controleimpressao.model.dto.SuapLoginResponseDTO;
 import com.dticnat.controleimpressao.model.dto.SuapUserData;
 import com.dticnat.controleimpressao.model.enums.Role;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
@@ -34,15 +33,17 @@ public class AuthService {
      * @param authToken O token de autenticação do usuário.
      * @return Um objeto UserData contendo os dados do usuário, ou null se a recuperação falhar.
      */
-    public User getUserPrincipal(String authToken) throws AuthorizationException {
+    public User getUserPrincipal(String authToken) throws UnauthorizedException {
         RestClient restClient = RestClient.builder()
                 .baseUrl("https://suap.ifrn.edu.br")
                 .defaultHeader("Authorization", authToken)
                 .build();
 
         SuapUserData suapUserData = restClient.get().uri("/api/rh/meus-dados/").retrieve().body(SuapUserData.class);
+
+        // Credenciais inválidas
         if(suapUserData == null || suapUserData.getMatricula() == null)
-            throw new AuthorizationException("Usuário não encontrado.", HttpStatus.NOT_FOUND);
+            throw new UnauthorizedException("Usuário não encontrado.");
 
         return User
                 .builder()
@@ -57,7 +58,7 @@ public class AuthService {
     }
 
 
-    public SuapLoginResponseDTO getSuapTokenFromCredentials(SuapLoginDTO credentials) throws AuthorizationException {
+    public SuapLoginResponseDTO getSuapTokenFromCredentials(SuapLoginDTO credentials) throws UnauthorizedException {
         RestClient restClient = RestClient.builder()
                 .baseUrl("https://suap.ifrn.edu.br")
                 .defaultHeader("Accept", MediaType.APPLICATION_JSON_VALUE)
@@ -73,13 +74,13 @@ public class AuthService {
                     .body(SuapLoginResponseDTO.class);
 
             if (tokenObject == null || tokenObject.getAccess() == null) {
-                throw new AuthorizationException("Usuário não encontrado.", HttpStatus.NOT_FOUND);
+                throw new UnauthorizedException("Usuário não encontrado.");
             }
 
             return tokenObject;
 
         } catch (RestClientException e) {
-            throw new AuthorizationException("Erro ao autenticar com o SUAP: " + e.getMessage(), HttpStatus.UNAUTHORIZED);
+            throw new UnauthorizedException("Erro ao autenticar com o SUAP: " + e.getMessage());
         }
     }
 

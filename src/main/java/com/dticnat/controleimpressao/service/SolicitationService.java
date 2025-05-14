@@ -471,12 +471,10 @@ public class SolicitationService {
      * @param eventType  Flag indicando tipo de evento (EDIÇÃO)
      * @return A solicitação em questão, se o usuário tiver permissão.
      * @throws EntityNotFoundException Caso a solicitação com o ID especificado não for encontrada.
-     * @throws UnauthorizedException   Caso o usuário não tenha permissão para interagir com a solicitação.
      * @throws ForbiddenException      Caso o usuário tente modificar uma solicitação arquivada.
      */
     public Solicitation canInteract(Long solicitationId, User user, EventType eventType) throws
             EntityNotFoundException,
-            UnauthorizedException,
             ForbiddenException {
         // Busca a solicitação
         Solicitation solicitation = solicitationRepository.findById(solicitationId).orElseThrow(EntityNotFoundException::new);
@@ -488,7 +486,7 @@ public class SolicitationService {
         // Proíba iterações se a solicitação não pertencer ao usuário e o mesmo não for admin
         if (!solicitation.getUser().getRegistrationNumber().equals(user.getRegistrationNumber()) &&
                 !user.isAdminOrManager())
-            throw new UnauthorizedException();
+            throw new ForbiddenException();
 
         return solicitation;
     }
