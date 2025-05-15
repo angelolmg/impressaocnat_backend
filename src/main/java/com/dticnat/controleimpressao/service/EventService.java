@@ -19,6 +19,7 @@ import org.thymeleaf.context.Context;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.time.Year;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -178,6 +179,7 @@ public class EventService {
         ctx.setVariable("showRedirect", (eventType != EventType.REQUEST_DELETING && eventType != EventType.REQUEST_ARCHIVING));
         ctx.setVariable("eventContent", eventContent != null ? eventContent : "Nenhuma informação de conteúdo específica para este evento.");
         ctx.setVariable("solicitationLink", frontendUrl + "/solicitacoes/ver/" + solicitation.getId().toString());
+        ctx.setVariable("currentYear", Year.now().getValue());
 
         try {
             Resource dtiResource = resourceLoader.getResource("classpath:static/images/logodti.png");
