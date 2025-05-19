@@ -65,9 +65,9 @@ public class EventService {
         Optional<Event> latestEventOptional = getLatestEventForSolicitation(solicitation);
 
         latestEventOptional.ifPresent(latestEvent -> {
-            boolean shouldNotify = shouldSendNotification(latestEvent.getType());
+            boolean canNotify = couldSendNotification(latestEvent.getType());
 
-            if (shouldNotify) {
+            if (canNotify) {
                 // 1. Buscar todos os usuários interessados na solicitação
                 Set<User> interestedUsers = getInterestedUsers(solicitation);
 
@@ -146,13 +146,14 @@ public class EventService {
                 .collect(Collectors.toSet()); // Collect the unique users into a Set
     }
 
-    private boolean shouldSendNotification(EventType eventType) {
-        // Atualmente, qualquer operação exceto ARQUIVAMENTO pode notificar via email
+    private boolean couldSendNotification(EventType eventType) {
+        // Atualmente, qualquer operação exceto ARQUIVAMENTO e TOGGLE pode notificar via email
         return eventType == EventType.COMMENT
                 || eventType == EventType.REQUEST_OPENING
                 || eventType == EventType.REQUEST_CLOSING
                 || eventType == EventType.REQUEST_DELETING
                 //|| eventType == EventType.REQUEST_ARCHIVING
+                //|| eventType == EventType.REQUEST_TOGGLE
                 || eventType == EventType.REQUEST_EDITING;
     }
 
@@ -164,6 +165,7 @@ public class EventService {
         final Context ctx = new Context();
         ctx.setVariable("eventMessage", switch (eventType) {
             case COMMENT -> "Um novo comentário foi adicionado à solicitação " + solicitationNumber + ".";
+            case REQUEST_TOGGLE -> "A status da solicitação " + solicitationNumber + " foi alterado.";
             case REQUEST_OPENING -> "A solicitação " + solicitationNumber + " foi aberta.";
             case REQUEST_CLOSING -> "A solicitação " + solicitationNumber + " foi fechada.";
             case REQUEST_EDITING -> "A solicitação " + solicitationNumber + " foi editada.";

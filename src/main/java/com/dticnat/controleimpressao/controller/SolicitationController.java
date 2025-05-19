@@ -404,7 +404,7 @@ public class SolicitationController {
         try {
             // Verificar se solicitação sendo alterada pertence ao usuário tentando editá-la
             // Se o usuario for admin, ele pode editar mesmo solicitações que não são dele
-            Solicitation solicitation = solicitationService.canInteract(solicitationId, user, EventType.REQUEST_EDITING);
+            Solicitation solicitation = solicitationService.canInteract(solicitationId, user, EventType.REQUEST_TOGGLE);
 
             // Alterna status da solicitação
             solicitationService.toggleConclusionDate(solicitation, sendNotification, user);

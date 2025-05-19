@@ -479,8 +479,9 @@ public class SolicitationService {
         // Busca a solicitação
         Solicitation solicitation = solicitationRepository.findById(solicitationId).orElseThrow(EntityNotFoundException::new);
 
-        // Proíbe iterações do tipo modificação (PATCH/DELETE) se a solicitação estiver arquivada
-        if ((eventType == EventType.REQUEST_EDITING || eventType == EventType.REQUEST_DELETING) && solicitation.isArchived())
+        // Proíbe iterações do tipo modificação (PATCH/DELETE) se a solicitação estiver arquivada ou fechada (possui data de conclusão)
+        if ((eventType == EventType.REQUEST_EDITING || eventType == EventType.REQUEST_DELETING) &&
+                (solicitation.isArchived() || solicitation.getConclusionDate() != null))
             throw new ForbiddenException();
 
         // Proíba iterações se a solicitação não pertencer ao usuário e o mesmo não for admin
