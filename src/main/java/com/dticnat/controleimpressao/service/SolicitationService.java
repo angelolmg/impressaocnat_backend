@@ -57,6 +57,9 @@ public class SolicitationService {
     @Autowired
     private EventService eventService;
 
+    @Autowired
+    private FileValidationService fileValidationService;
+
     @Value("${arquivos.base-dir}")
     private String BASE_DIR;
 
@@ -366,8 +369,15 @@ public class SolicitationService {
                 String filePath = requestPath + "/" + copy.getFileName();
 
                 // Salva o arquivo no disco, caso o arquivo não seja nulo
-                boolean fileExists = file.getSize() > 0;
-                if (fileExists) file.transferTo(new File(filePath));
+                boolean fileExists = file != null && file.getSize() > 0;
+                if (fileExists) {
+                    if (!fileValidationService.validateAndProcessFile(file)) {
+                        String originalFilename = file.getOriginalFilename();
+                        String errorMessage = "O arquivo enviado '" + (originalFilename != null ? originalFilename : "nome_desconhecido") + "' está encriptado ou corrompido.";
+                        throw new BadRequestException(errorMessage);
+                    }
+                    file.transferTo(new File(filePath));
+                }
 
                 // Atualize o status de existência do arquivo
                 copy.setFileInDisk(fileExists);
@@ -468,7 +478,7 @@ public class SolicitationService {
      *
      * @param solicitationId ID da solicitação a ser verificada.
      * @param user           Usuário autenticado.
-     * @param eventType  Flag indicando tipo de evento (EDIÇÃO)
+     * @param eventType      Flag indicando tipo de evento (EDIÇÃO)
      * @return A solicitação em questão, se o usuário tiver permissão.
      * @throws EntityNotFoundException Caso a solicitação com o ID especificado não for encontrada.
      * @throws ForbiddenException      Caso o usuário tente modificar uma solicitação arquivada.

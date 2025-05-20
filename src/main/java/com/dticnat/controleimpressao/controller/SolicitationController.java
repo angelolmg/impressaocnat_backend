@@ -266,8 +266,8 @@ public class SolicitationController {
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Solicitação criada com sucesso",
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = Solicitation.class))),
-            @ApiResponse(responseCode = "400", description = "Número de arquivos enviados foi insuficiente.",
-                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "O número de arquivos enviados (2) não corresponde ao número de cópias a carregar (3)."))),
+            @ApiResponse(responseCode = "400", description = "Número de arquivos enviados foi insuficiente ou arquivo corrompido/encriptado.",
+                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "O número de arquivos enviados (2) não corresponde ao número de cópias a carregar (3) OU O arquivo enviado 'corrupted.pdf' está encriptado ou corrompido."))),
             @ApiResponse(responseCode = "403", description = "Não é possível alterar o status de uma solicitação que foi arquivada.",
                     content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "Não é possível alterar solicitações arquivadas."))),
             @ApiResponse(responseCode = "500", description = "Erro interno.",
@@ -276,7 +276,8 @@ public class SolicitationController {
     @PostMapping(consumes = {"multipart/form-data"})
     public ResponseEntity<?> createRequest(HttpServletRequest httpRequest,
                                            @Parameter(description = "Dados da solicitação a ser criada") @Valid @RequestPart("solicitacao") SolicitationDTO solicitationDTO,
-                                           @Parameter(description = "Lista de arquivos associados a solicitação") @RequestPart(value = "arquivos", required = false) List<MultipartFile> files) {
+                                           @Parameter(description = "Lista de arquivos associados a solicitação. Obs.: para anexar 'Arquivo Físico' é necessário anexar arquivo vazio (size == 0).")
+                                               @RequestPart(value = "arquivos", required = false) List<MultipartFile> files) {
 
         // Recuperar dados do usuário autenticado do request http
         User user = (User) httpRequest.getAttribute("userPrincipal");
