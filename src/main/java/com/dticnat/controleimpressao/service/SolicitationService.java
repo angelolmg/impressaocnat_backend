@@ -345,7 +345,7 @@ public class SolicitationService {
         // Checar se o número de arquivos anexados é igual ao número de objetos de cópia
         // Aqui significa que não foram enviados arquivos anexos suficientes
         if (files.size() < copiesToUpload.size())
-            throw new BadRequestException("O número de arquivos enviados (" + files.size() + ") não corresponde ao número de cópias para carregar (" + copiesToUpload.size() + ").");
+            throw new BadRequestException("O número de arquivos enviados (" + files.size() + ") não corresponde ao número de cópias a carregar (" + copiesToUpload.size() + ").");
 
         // Aqui significa que arquivo(s) anexado(s) de mesmo nome já existe(m) na solicitação
         // Retorne sem sobreescrever
@@ -369,7 +369,7 @@ public class SolicitationService {
                 boolean fileExists = file.getSize() > 0;
                 if (fileExists) file.transferTo(new File(filePath));
 
-                // Atualize o status de exsitência do arquivo
+                // Atualize o status de existência do arquivo
                 copy.setFileInDisk(fileExists);
                 copy.setIsPhysicalFile(!copy.getFileInDisk());
                 copyService.save(copy);
@@ -478,6 +478,10 @@ public class SolicitationService {
             ForbiddenException {
         // Busca a solicitação
         Solicitation solicitation = solicitationRepository.findById(solicitationId).orElseThrow(EntityNotFoundException::new);
+
+        // Apenas admins ou managers podem alterar status de solicitações
+        if (eventType == EventType.REQUEST_TOGGLE && !user.isAdminOrManager())
+            throw new ForbiddenException();
 
         // Proíbe iterações do tipo modificação (PATCH/DELETE) se a solicitação estiver arquivada ou fechada (possui data de conclusão)
         if ((eventType == EventType.REQUEST_EDITING || eventType == EventType.REQUEST_DELETING) &&
@@ -663,8 +667,9 @@ public class SolicitationService {
         Set<String> originalFileNames = getFileNamesFromRequest(originalSolicitation);
 
         // Identifica as cópias a serem adicionadas (presentes na atualizada, ausentes na original)
+        // Ignorar tentativa de upload de arquivos físicos
         List<Copy> toUpload = updatedSolicitation.getCopies().stream()
-                .filter(copy -> !originalFileNames.contains(copy.getFileName()))
+                .filter(copy -> !originalFileNames.contains(copy.getFileName()) && !copy.getIsPhysicalFile())
                 .toList();
 
         // Identifica as cópias a serem removidas (ausentes na atualizada, presentes na original)

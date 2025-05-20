@@ -64,7 +64,7 @@ public class Copy {
      * Por padrão, é definido como `false`.
      */
     @Builder.Default
-    private Boolean fileInDisk = false;
+    private Boolean fileInDisk = true;
 
     /**
      * Indica se o arquivo é físico (não foi anexado digitalmente à solicitação).
