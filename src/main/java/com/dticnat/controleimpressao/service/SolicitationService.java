@@ -489,18 +489,27 @@ public class SolicitationService {
         // Busca a solicitação
         Solicitation solicitation = solicitationRepository.findById(solicitationId).orElseThrow(EntityNotFoundException::new);
 
-        // Apenas admins ou managers podem alterar status de solicitações
+        // Proibe qualquer ação, exceto visualização, em solicitações arquivadas
+        if (eventType != EventType.REQUEST_VIEWING && solicitation.isArchived())
+            throw new ForbiddenException();
+
+        // Apenas ADMIN/MANAGER podem alterar status de solicitações
         if (eventType == EventType.REQUEST_TOGGLE && !user.isAdminOrManager())
             throw new ForbiddenException();
 
-        // Proíbe iterações do tipo modificação (PATCH/DELETE) se a solicitação estiver arquivada ou fechada (possui data de conclusão)
+        // Proíbe iterações tipo EDIT e DELETE se a solicitação estiver fechada (possui data de conclusão)
         if ((eventType == EventType.REQUEST_EDITING || eventType == EventType.REQUEST_DELETING) &&
-                (solicitation.isArchived() || solicitation.getConclusionDate() != null))
+                 solicitation.getConclusionDate() != null)
             throw new ForbiddenException();
 
-        // Proíba iterações se a solicitação não pertencer ao usuário e o mesmo não for admin
+        // Proíba iterações se a solicitação não pertencer ao usuário e o mesmo não for ADMIN/MANAGER
         if (!solicitation.getUser().getRegistrationNumber().equals(user.getRegistrationNumber()) &&
                 !user.isAdminOrManager())
+            throw new ForbiddenException();
+
+        // Proíbe iterações DELETE se não for ADMIN ou a solicitação não pertencer ao usuário
+        if (eventType == EventType.REQUEST_DELETING &&
+                (!user.isAdmin() || !solicitation.getUser().getRegistrationNumber().equals(user.getRegistrationNumber())))
             throw new ForbiddenException();
 
         return solicitation;

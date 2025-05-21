@@ -25,7 +25,7 @@ public class AuthInterceptor implements HandlerInterceptor {
     private static final Logger logger = LoggerFactory.getLogger(AuthInterceptor.class);
 
     @Override
-    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws ResponseStatusException, UnauthorizedException {
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws ResponseStatusException, UnauthorizedException, AuthorizationException {
         // Necessário para buscar uma solicilitação por ID
         if(Objects.equals(request.getMethod(), "OPTIONS")) return true;
 
@@ -47,6 +47,9 @@ public class AuthInterceptor implements HandlerInterceptor {
         } catch (AuthorizationException e) {
             logger.error("Erro ao obter dados do usuário: {}", e.getMessage());
             throw e;
+        } catch (Exception e) {
+            logger.error("Erro no servidor do SUAP: {}", e.getMessage());
+            throw new RuntimeException(e);
         }
     }
 }

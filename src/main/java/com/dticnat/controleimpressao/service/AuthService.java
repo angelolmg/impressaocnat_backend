@@ -39,7 +39,14 @@ public class AuthService {
                 .defaultHeader("Authorization", authToken)
                 .build();
 
-        SuapUserData suapUserData = restClient.get().uri("/api/rh/meus-dados/").retrieve().body(SuapUserData.class);
+        SuapUserData suapUserData = null;
+
+        // Recuperar dados do usuário
+        try {
+            suapUserData = restClient.get().uri("/api/rh/meus-dados/").retrieve().body(SuapUserData.class);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
 
         // Credenciais inválidas
         if(suapUserData == null || suapUserData.getMatricula() == null)
