@@ -549,17 +549,21 @@ public class SolicitationService {
                 // Atualizar status de obsolência da solicitação
                 solicitation.setArchived(true);
 
+                // Usuário do sistema
+                User system = User.builder()
+                        .role(Role.SYSTEM)
+                        .build();
+
                 // Adicionar evento de arquivamento à timeline
                 solicitation.getTimeline().add(Event.builder()
                         .solicitationId(solicitation.getId())
-                        .user(User.builder()
-                                .role(Role.SYSTEM)
-                                .build())
+                        .user(system)
                         .type(EventType.REQUEST_ARCHIVING)
                         .creationDate(LocalDateTime.now())
                         .build());
 
-                solicitationRepository.save(solicitation);
+                Solicitation archivedSolicitation = solicitationRepository.save(solicitation);
+                eventService.sendNotificationForLatestEvent(archivedSolicitation, system);
 
                 deletedTotal.addAndGet(numDeleted);
             }

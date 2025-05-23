@@ -134,7 +134,7 @@
     <p th:text="${eventContent}">{{eventContent}}</p>
   </div>
 
-  <p class="sender-info">Enviado por <span th:text="${userName}">{{userName}}</span> (<span th:text="${userRegistration}">{{userRegistration}}</span>) às <span th:text="${eventDate}">{{eventDate}}</span></p>
+  <p class="sender-info">Enviado <span th:text="${sender}">{{sender}}</span> às <span th:text="${eventDate}">{{eventDate}}</span></p>
 
   <!--  Botão de redirect-->
   <div th:if="${showRedirect}" class="button-container">

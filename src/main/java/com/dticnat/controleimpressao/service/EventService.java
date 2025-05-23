@@ -4,6 +4,7 @@ import com.dticnat.controleimpressao.model.Event;
 import com.dticnat.controleimpressao.model.Solicitation;
 import com.dticnat.controleimpressao.model.User;
 import com.dticnat.controleimpressao.model.enums.EventType;
+import com.dticnat.controleimpressao.model.enums.Role;
 import com.dticnat.controleimpressao.repository.EventRepository;
 import jakarta.mail.MessagingException;
 import org.slf4j.Logger;
@@ -68,16 +69,12 @@ public class EventService {
             boolean canNotify = couldSendNotification(latestEvent.getType());
 
             if (canNotify) {
-                // 1. Buscar todos os usuários interessados na solicitação
-                Set<User> interestedUsers = getInterestedUsers(solicitation);
+                // 1. Buscar todos os usuários interessados na solicitação, a depender do usuário que ativou o evento
+                // Caso este usuário seja o próprio sistema, o único interessado na notificação deve ser o dono da solicitação
+                Set<User> interestedUsers = getInterestedUsers(solicitation, triggeringUser);
 
-                // 2. Excluir o próprio usuário que disparou a ação
-                Set<User> recipients = interestedUsers.stream()
-//                        .filter(user -> triggeringUser == null || !user.getRegistrationNumber().equals(triggeringUser.getRegistrationNumber()))
-                        .collect(Collectors.toSet());
-
-                // 3. Extrair os emails dos destinatários distintos
-                List<String> recipientEmails = recipients.stream()
+                // 2. Extrair os emails dos destinatários distintos
+                List<String> recipientEmails = interestedUsers.stream()
                         .map(User::getEmail)
                         .distinct()
                         .toList();
@@ -106,53 +103,62 @@ public class EventService {
     // Executado assincronamente para não bloquear a resposta ao cliente ao enviar email
     @Async
     public void sendNotificationForLooseEvent(Solicitation solicitation, User triggeringUser, EventType eventType) {
+            Set<User> interestedUsers = getInterestedUsers(solicitation, triggeringUser);
 
-        Set<User> interestedUsers = getInterestedUsers(solicitation);
-        Set<User> recipients = interestedUsers.stream()
-//                        .filter(user -> !user.getId().equals(triggeringUser.getId()))
-                .collect(Collectors.toSet());
+            List<String> recipientEmails = interestedUsers.stream()
+                    .map(User::getEmail)
+                    .distinct()
+                    .toList();
 
-        List<String> recipientEmails = recipients.stream()
-                .map(User::getEmail)
-                .distinct()
-                .toList();
+            if (!recipientEmails.isEmpty()) {
+                String subject = "[Impressão CNAT] Notificação sobre solicitação";
+                String body = generateHtmlContentForLooseEvent(solicitation, triggeringUser, eventType);
+                String[] toAddresses = recipientEmails.toArray(new String[0]);
 
-        if (!recipientEmails.isEmpty()) {
-            String subject = "[Impressão CNAT] Notificação sobre solicitação";
-            String body = generateHtmlContentForLooseEvent(solicitation, triggeringUser, eventType);
-            String[] toAddresses = recipientEmails.toArray(new String[0]);
-
-            try {
-                emailService.sendEmail(toAddresses, subject, body);
-                logger.info("Notificação enviada com sucesso para a ID de solicitação {} (Tipo de evento: {}) para {} usuários interessados.", solicitation.getId(), eventType, recipientEmails.size());
-            } catch (MessagingException e) {
-                logger.error("Erro ao enviar notificação para ID de solicitação {} (Tipo de evento: {}): {}", solicitation.getId(), eventType, e.getMessage(), e);
+                try {
+                    emailService.sendEmail(toAddresses, subject, body);
+                    logger.info("Notificação enviada com sucesso para a ID de solicitação {} (Tipo de evento: {}) para {} usuários interessados.", solicitation.getId(), eventType, recipientEmails.size());
+                } catch (MessagingException e) {
+                    logger.error("Erro ao enviar notificação para ID de solicitação {} (Tipo de evento: {}): {}", solicitation.getId(), eventType, e.getMessage(), e);
+                }
+            } else {
+                logger.info("Nenhum outro usuário interessado a ser notificado para o ID de solicitação {} (Tipo de evento: {}).", solicitation.getId(), eventType);
             }
-        } else {
-            logger.info("Nenhum outro usuário interessado a ser notificado para o ID de solicitação {} (Tipo de evento: {}).", solicitation.getId(), eventType);
-        }
     }
 
-    private Set<User> getInterestedUsers(Solicitation solicitation) {
+    public Set<User> getInterestedUsers(Solicitation solicitation, User triggeringUser) {
         List<Event> events = solicitation.getTimeline(); // Get the list of events for the solicitation
 
         if (events == null || events.isEmpty()) {
             return Set.of(); // Return an empty set if there are no events
         }
 
-        // Extract the unique users from the list of events
+        // Check if the user on the last event has a role of "system"
+        if (triggeringUser.getRole() == Role.SYSTEM) {
+            // If so, the only interested user is the solicitation's owner
+            User owner = solicitation.getUser();
+            if (owner != null) {
+                return Set.of(owner);
+            } else {
+                return Set.of();
+            }
+        }
+
+        // Otherwise, extract the unique users from the list of events
         return events.stream()
                 .map(Event::getUser) // Get the User from each Event
+                .filter(java.util.Objects::nonNull) // Ensure users are not null before collecting
+//                .filter(user -> !user.getRegistrationNumber().equals(triggeringUser.getRegistrationNumber())) // Excluir o próprio usuário que disparou a ação dos interessados
                 .collect(Collectors.toSet()); // Collect the unique users into a Set
     }
 
     private boolean couldSendNotification(EventType eventType) {
-        // Atualmente, qualquer operação exceto ARQUIVAMENTO e TOGGLE pode notificar via email
+        // Atualmente, qualquer operação exceto TOGGLE pode notificar via email
         return eventType == EventType.COMMENT
                 || eventType == EventType.REQUEST_OPENING
                 || eventType == EventType.REQUEST_CLOSING
                 || eventType == EventType.REQUEST_DELETING
-                //|| eventType == EventType.REQUEST_ARCHIVING
+                || eventType == EventType.REQUEST_ARCHIVING
                 //|| eventType == EventType.REQUEST_TOGGLE
                 || eventType == EventType.REQUEST_EDITING;
     }
@@ -161,6 +167,7 @@ public class EventService {
     private String generateHtmlContent(Solicitation solicitation, User user, EventType eventType, String eventContent) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
         String solicitationNumber = String.format("Nº%06d", solicitation.getId());
+        boolean systemNotification = user.getRole() == Role.SYSTEM;
 
         final Context ctx = new Context();
         ctx.setVariable("eventMessage", switch (eventType) {
@@ -174,11 +181,10 @@ public class EventService {
             default -> "Uma atualização ocorreu na solicitação " + solicitationNumber + ".";
         });
 
-        ctx.setVariable("userName", user.getCommonName());
-        ctx.setVariable("userRegistration", user.getRegistrationNumber());
-        ctx.setVariable("eventDate", LocalDateTime.now().format(formatter)); // Default to now, can be overridden
+        ctx.setVariable("sender", systemNotification ? "automaticamente" : "por " + user.getCommonName() + " " + user.getRegistrationNumber());
+        ctx.setVariable("eventDate", LocalDateTime.now().format(formatter)); // Default to now
         ctx.setVariable("showContent", eventType == EventType.COMMENT);
-        ctx.setVariable("showRedirect", (eventType != EventType.REQUEST_DELETING && eventType != EventType.REQUEST_ARCHIVING));
+        ctx.setVariable("showRedirect", eventType != EventType.REQUEST_DELETING);
         ctx.setVariable("eventContent", eventContent != null ? eventContent : "Nenhuma informação de conteúdo específica para este evento.");
         ctx.setVariable("solicitationLink", frontendUrl + "/solicitacoes/ver/" + solicitation.getId().toString());
         ctx.setVariable("currentYear", Year.now().getValue());
